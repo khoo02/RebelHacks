@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<!DOCTYPE html>
+<html lang="en">
+  <!DOCTYPE html>
+  <html lang="en">
+    <!DOCTYPE html>
+    <html lang="en">
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Document</title>
+          <link rel="stylesheet" href="style.css">
+        </head>
+        <body>
+          <h1>Welcome</h1>
+
+          <script src="script.js"></script>
+        </body>
+      </html>
+      </body>
+    </html>
+    </body>
+  </html>
+  </body>
+</html>
+  <p>The House Always Wins</p>
+</header>
+
+<div class="table-area">
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-box" id="balanceBox">
+      <div class="stat-label">Balance</div>
+      <div class="stat-value" id="balanceDisplay">$100</div>
+    </div>
+    <div class="stat-box" id="totalLostBox">
+      <div class="stat-label">Total Deposited</div>
+      <div class="stat-value" id="totalDepositedDisplay">$100</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Net Loss</div>
+      <div class="stat-value" id="netLossDisplay">$0</div>
+    </div>
+  </div>
+
+  <!-- Debt Warning -->
+  <div class="debt-warning" id="debtWarning">
+    <div class="dw-title">⚠ You Are In Debt</div>
+    <div class="dw-text" id="debtText">You owe $0. You're borrowing money to gamble — a dangerous pattern that affects millions.</div>
+  </div>
+
+  <!-- Felt Table -->
+  <div class="felt-table">
+    <div class="hand-section">
+      <div class="hand-label">Dealer <span class="hand-score" id="dealerScore"></span></div>
+      <div class="cards-row" id="dealerCards"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="game-message">
+      <div class="message-text" id="messageText">Place your bet to begin</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="hand-section">
+      <div class="hand-label">You <span class="hand-score" id="playerScore"></span></div>
+      <div class="cards-row" id="playerCards"></div>
+    </div>
+  </div>
+
+  <!-- Bet Section -->
+  <div class="bet-section">
+    <div class="bet-label">Place Your Bet</div>
+    <div class="bet-chips">
+      <div class="chip chip-5" onclick="addBet(5)" id="chip5">$5</div>
+      <div class="chip chip-10" onclick="addBet(10)" id="chip10">$10</div>
+      <div class="chip chip-25" onclick="addBet(25)" id="chip25">$25</div>
+      <div class="chip chip-50" onclick="addBet(50)" id="chip50">$50</div>
+      <div class="chip chip-100" onclick="addBet(100)" id="chip100">$100</div>
+    </div>
+    <div class="current-bet" id="currentBetDisplay">Bet: $0</div>
+  </div>
+
+  <!-- Game Controls -->
+  <div class="controls">
+    <button class="btn btn-primary" id="dealBtn" onclick="deal()">Deal</button>
+    <button class="btn btn-green" id="hitBtn" onclick="hit()" disabled>Hit</button>
+    <button class="btn btn-secondary" id="standBtn" onclick="stand()" disabled>Stand</button>
+    <button class="btn btn-danger" id="clearBetBtn" onclick="clearBet()">Clear Bet</button>
+    <button class="btn btn-secondary" onclick="openDeposit(false)">+ Deposit</button>
+  </div>
+
+  <!-- Loss Tracker -->
+  <div class="loss-tracker">
+    <h3>Session Statistics</h3>
+    <div class="loss-stats">
+      <div>
+        <div class="loss-stat-label">Hands Won</div>
+        <div class="loss-stat-val good" id="handsWon">0</div>
+      </div>
+      <div>
+        <div class="loss-stat-label">Hands Lost</div>
+        <div class="loss-stat-val bad" id="handsLost">0</div>
+      </div>
+      <div>
+        <div class="loss-stat-label">Win Rate</div>
+        <div class="loss-stat-val" id="winRate">—</div>
+      </div>
+      <div>
+        <div class="loss-stat-label">Biggest Win</div>
+        <div class="loss-stat-val good" id="biggestWin">$0</div>
+      </div>
+      <div>
+        <div class="loss-stat-label">Biggest Loss</div>
+        <div class="loss-stat-val bad" id="biggestLoss">$0</div>
+      </div>
+      <div>
+        <div class="loss-stat-label">Net P&amp;L</div>
+        <div class="loss-stat-val" id="netPL">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="reality-check">
+    Gambling is designed so the house has a statistical edge on every hand.<br>
+    The longer you play, the more the odds work against you.<br>
+    If gambling feels compulsive, please reach out: <strong style="color: rgba(232,220,200,0.5)">1-800-522-4700</strong> (National Problem Gambling Helpline)
+  </div>
+</div>
+
+<!-- Deposit Modal -->
+<div class="modal-overlay" id="depositModal">
+  <div class="modal">
+    <div id="modalBrokeHeader" style="display:none; margin-bottom:16px;">
+      <div style="font-size:2rem; text-align:center; margin-bottom:6px;">💸</div>
+      <h2 style="color:var(--debt-color); text-align:center;">You're Out of Money</h2>
+      <p style="color:rgba(255,120,120,0.75); text-align:center; margin-bottom:0;">You've spent everything. Do you really want to deposit more?</p>
+    </div>
+    <div id="modalNormalHeader">
+      <h2>Deposit Funds</h2>
+      <p>Choose an amount to add to your balance.</p>
+    </div>
+
+    <!-- What you could have bought — shown when money is lost -->
+    <div id="couldHaveBought" style="display:none; margin-bottom:18px;">
+      <div style="font-size:0.62rem; letter-spacing:0.15em; text-transform:uppercase; color:rgba(232,220,200,0.35); text-align:center; margin-bottom:10px;">With the $<span id="lostAmountLabel">0</span> you've lost, you could have had...</div>
+      <div id="purchaseItems" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <div class="modal-amounts">
+      <button class="deposit-btn" onclick="deposit(50)">$50</button>
+      <button class="deposit-btn" onclick="deposit(100)">$100</button>
+      <button class="deposit-btn" onclick="deposit(200)">$200</button>
+      <button class="deposit-btn" onclick="deposit(500)">$500</button>
+      <button class="deposit-btn" onclick="deposit(1000)">$1,000</button>
+      <button class="deposit-btn" onclick="deposit(5000)">$5,000</button>
+    </div>
+
+    <div id="leaveBtn" style="display:none; margin-top:10px;">
+      <button onclick="leaveCasino()" style="width:100%; padding:14px; background:linear-gradient(135deg,#27ae60,#2ecc71); color:white; border:none; border-radius:8px; font-family:'Courier Prime',monospace; font-size:0.95rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; box-shadow:0 4px 20px rgba(46,204,113,0.4); transition:all 0.2s;">
+        🚪 Leave the Casino
+      </button>
+      <div style="text-align:center; font-size:0.65rem; color:rgba(46,204,113,0.5); margin-top:6px; letter-spacing:0.05em;">The smartest decision you can make right now.</div>
+    </div>
+
+    <button class="modal-close" id="modalCancelBtn" onclick="closeDeposit()">Continue Playing</button>
+  </div>
+</div>
+
+<!-- Left Casino Screen -->
+<div class="modal-overlay" id="leftCasinoScreen">
+  <div class="modal" style="text-align:center; max-width:440px;">
+    <div style="font-size:3rem; margin-bottom:12px;">🚶</div>
+    <h2 style="color:#2ecc71; font-size:1.6rem; margin-bottom:10px;">You Left the Casino.</h2>
+    <p style="color:rgba(232,220,200,0.6); font-size:0.85rem; line-height:1.7; margin-bottom:20px;">
+      That took courage. Most people don't walk away — they keep chasing losses until it's too late.
+    </p>
+    <div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:16px; margin-bottom:20px; border:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:0.62rem; letter-spacing:0.15em; text-transform:uppercase; color:rgba(232,220,200,0.3); margin-bottom:12px;">Your Session Summary</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:left;">
+        <div><div style="font-size:0.6rem;color:rgba(232,220,200,0.3);text-transform:uppercase;letter-spacing:0.1em;">Total Deposited</div><div style="font-size:1rem;font-weight:700;color:var(--debt-color);" id="summaryDeposited"></div></div>
+        <div><div style="font-size:0.6rem;color:rgba(232,220,200,0.3);text-transform:uppercase;letter-spacing:0.1em;">Left With</div><div style="font-size:1rem;font-weight:700;color:rgba(232,220,200,0.8);" id="summaryBalance"></div></div>
+        <div><div style="font-size:0.6rem;color:rgba(232,220,200,0.3);text-transform:uppercase;letter-spacing:0.1em;">Hands Won</div><div style="font-size:1rem;font-weight:700;color:#2ecc71;" id="summaryWon"></div></div>
+        <div><div style="font-size:0.6rem;color:rgba(232,220,200,0.3);text-transform:uppercase;letter-spacing:0.1em;">Hands Lost</div><div style="font-size:1rem;font-weight:700;color:var(--debt-color);" id="summaryLost"></div></div>
+      </div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
+        <div style="font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(232,220,200,0.3); margin-bottom:8px;">Instead you could have had...</div>
+        <div id="summaryCouldHave" style="font-size:0.82rem; color:rgba(232,220,200,0.6); line-height:1.8;"></div>
+      </div>
+    </div>
+    <p style="font-size:0.72rem; color:rgba(232,220,200,0.3); margin-bottom:16px;">If gambling is affecting your life, help is available 24/7:</p>
+    <div style="font-size:1rem; font-weight:700; color:var(--gold); letter-spacing:0.05em; margin-bottom:20px;">1-800-522-4700</div>
+    <button onclick="resetGame()" style="width:100%; padding:12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:rgba(232,220,200,0.5); border-radius:8px; font-family:'Courier Prime',monospace; font-size:0.8rem; cursor:pointer;">Play Again (Start Over)</button>
+  </div>
+</div>
+</body>
+</html>

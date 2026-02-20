@@ -5,13 +5,42 @@ const SUITS  = ['♠','♥','♦','♣'];
 const VALUES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const RED_SUITS = new Set(['♥','♦']);
 
+// Configuration: whether dealer hits on soft 17 (Ace + 6)
+const DEALER_HITS_SOFT_17 = false; // S17 by default
+
 const MONSTERS = [
-  { name: 'VOID DEALER',  sprite: '👹', hp: 80,  difficulty: 1 },
-  { name: 'SKULL BANKER', sprite: '💀', hp: 100, difficulty: 1.2 },
-  { name: 'SHADOW DUKE',  sprite: '🐉', hp: 120, difficulty: 1.4 },
+  { name: 'BELLAGIO VAULT',    sprite: '🎲', hp: 90,  difficulty: 1 },
+  { name: 'MGM GRANDHOUSE',    sprite: '🎰', hp: 100, difficulty: 1.1 },
+  { name: 'CAESARS KEEP',      sprite: '🏛️', hp: 110, difficulty: 1.2 },
+  { name: 'THE VENETIAN VAULT',sprite: '🛶', hp: 95,  difficulty: 1.05 },
+  { name: 'WYNN RESORT',       sprite: '🌟', hp: 105, difficulty: 1.15 },
 ];
 
 let state = {};
+
+function isSoft17(cards) {
+  // soft 17: total 17 where an Ace counts as 11 (i.e., there's at least one ace counted as 11)
+  let total = 0, aces = 0;
+  for (let c of cards) {
+    if (c.value === 'A') { total += 11; aces++; }
+    else if (['J','Q','K'].includes(c.value)) total += 10;
+    else total += parseInt(c.value);
+  }
+  // reduce aces from 11->1 as needed
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  // It's soft if total == 17 and there is at least one ace that could be counted as 11
+  // We can detect soft by checking original sum with an ace as 11 at least once.
+  if (total !== 17) return false;
+  // Check if there exists an ace that is effectively counted as 11
+  // Recalculate treating all aces as 1 to see baseline
+  let baseline = 0;
+  for (let c of cards) {
+    if (c.value === 'A') baseline += 1;
+    else if (['J','Q','K'].includes(c.value)) baseline += 10;
+    else baseline += parseInt(c.value);
+  }
+  return (total > baseline);
+}
 
 function freshDeck() {
   let d = [];
@@ -65,6 +94,8 @@ function startGame() {
     jokerUsed: { 1:false, 2:false, 3:false, 4:false },
     round: 1,
     busy: false,
+    playerNatural: false,
+    monsterNatural: false,
   };
 
   // Update monster UI
@@ -97,17 +128,39 @@ async function dealRound() {
   setButtons(false);
   state.playerCards = [];
   state.monsterCards = [];
+  state.playerNatural = false;
+  state.monsterNatural = false;
   document.getElementById('player-cards').innerHTML = '';
   document.getElementById('monster-cards').innerHTML = '';
   document.getElementById('monster-score').textContent = '?';
 
   // Deal 2 cards each, alternating
   await drawCard('player', false, 200);
-  await drawCard('monster', true,  400);
+  // Show dealer's first card face-up (standard blackjack shows one dealer card)
+  await drawCard('monster', false,  400);
   await drawCard('player', false, 600);
+  // Dealer second card remains face-down
   await drawCard('monster', true,  800);
 
   updateScores();
+
+  // Check for naturals (blackjack) immediately after the opening deal
+  state.playerNatural = handScore(state.playerCards) === 21 && state.playerCards.length === 2;
+  state.monsterNatural = handScore(state.monsterCards) === 21 && state.monsterCards.length === 2;
+  if (state.playerNatural || state.monsterNatural) {
+    state.phase = 'resolution';
+    setButtons(false);
+    setLog("Checking for blackjacks...");
+    // Reveal dealer's hidden card(s)
+    flipMonsterCards();
+    await sleep(800);
+    const pScore = handScore(state.playerCards);
+    const mScore = handScore(state.monsterCards);
+    document.getElementById('monster-score').textContent = mScore > 21 ? `${mScore}💀` : mScore;
+    await resolveRound(pScore, mScore);
+    return;
+  }
+
   setLog(`Round ${state.round} — Your move! Hit for another card, or Stand to attack.`);
   state.phase = 'player';
   state.busy = false;
@@ -220,14 +273,31 @@ async function playerStand() {
   await sleep(1000);
 
   // Monster draws to reach strategy score
-  const difficulty = state.monster.difficulty;
-  const targetScore = Math.round(16 * difficulty);
+  // Use standard dealer rule: hit until 17 (configure soft-17 behavior separately if desired)
+  const targetScore = 17;
   setLog(`${state.monster.name} draws cards...`);
 
-  while (handScore(state.monsterCards) < targetScore && state.monsterCards.length < 7) {
-    await drawCard('monster', false, 0);
-    renderFlippedMonsterCard();
-    await sleep(700);
+  // Dealer drawing loop with soft-17 handling
+  while (state.monsterCards.length < 7) {
+    const mScoreNow = handScore(state.monsterCards);
+    if (mScoreNow < targetScore) {
+      await drawCard('monster', false, 0);
+      renderFlippedMonsterCard();
+      await sleep(700);
+      continue;
+    }
+    if (mScoreNow > targetScore) break;
+    // mScoreNow === targetScore (17): check soft-17 rule
+    if (mScoreNow === targetScore) {
+      if (DEALER_HITS_SOFT_17 && isSoft17(state.monsterCards)) {
+        await drawCard('monster', false, 0);
+        renderFlippedMonsterCard();
+        await sleep(700);
+        continue;
+      }
+      break;
+    }
+    break;
   }
 
   const pScore = handScore(state.playerCards);
@@ -282,6 +352,8 @@ async function playerSpecial() {
 async function resolveRound(pScore, mScore) {
   const mBust  = mScore > 21;
   const pBust  = pScore > 21;
+  const pNatural = !!state.playerNatural;
+  const mNatural = !!state.monsterNatural;
   let msg = '';
   let playerDmg = 0, monsterDmg = 0;
 
@@ -293,7 +365,7 @@ async function resolveRound(pScore, mScore) {
     msg = `You busted! Monster deals ${playerDmg} damage as punishment.`;
   } else if (pBust && mBust) {
     msg = "Both busted! A chaotic draw — no damage!";
-  } else if (pScore > mScore) {
+  } else if (pScore > mScore) { 
     monsterDmg = pScore - mScore + 10;
     msg = `Victory! ${pScore} vs ${mScore} — Monster takes ${monsterDmg} damage!`;
   } else if (mScore > pScore) {
@@ -307,6 +379,11 @@ async function resolveRound(pScore, mScore) {
   await sleep(600);
 
   if (monsterDmg > 0) {
+    // Apply natural double-damage for player if configured
+    if (pNatural) {
+      monsterDmg = monsterDmg * 2;
+      msg += " (Natural blackjack! Damage doubled.)";
+    }
     let finalDmg = state.doubleNext ? monsterDmg * 2 : monsterDmg;
     state.doubleNext = false;
     showDamageNumber(finalDmg, '#d4a017', 'monster');
@@ -342,7 +419,9 @@ async function resolveRound(pScore, mScore) {
 }
 
 async function monsterAttack(fromBust=false) {
-  const dmg = fromBust ? 10 : Math.floor(Math.random() * 15) + 5;
+  // Monster counterattack after player busts
+  const dmg = fromBust ? Math.floor(Math.random() * 15) + 5 : Math.floor(Math.random() * 15) + 5;
+
   if (state.blocking) {
     setLog("🛡 Iron Skin absorbed the monster's counterattack!");
     state.blocking = false;

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackJack Brawl — Vegas Dungeon</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen">
+  <div style="font-size:5rem; filter: drop-shadow(0 0 40px rgba(212,160,23,0.6))">🂡</div>
+  <h1>BlackJack<br>BRAWL</h1>
+  <p>A Vegas dungeon where cards are your weapons.<br>Beat 21 or face the darkness.</p>
+  <button class="big-btn" onclick="startGame()">⚔ ENTER THE DUNGEON</button>
+  <p style="font-size:0.85rem; opacity:0.4; margin-top:1rem">
+    Hit to draw • Stand to end your turn • Special for bonus attacks
+  </p>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+
+  <!-- MONSTER ZONE -->
+  <div id="monster-zone">
+    <div class="zone-label">▲ ENEMY LAIR</div>
+    <div id="monster-header">
+      <div id="monster-sprite">👹</div>
+      <div id="monster-info">
+        <div id="monster-name">VOID DEALER</div>
+        <div id="monster-hp-bar">
+          <div class="hp-label">HP: <span id="monster-hp-text">100</span> / 100</div>
+          <div class="bar-track"><div class="bar-fill" id="monster-hp-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div id="monster-score">?</div>
+    </div>
+    <div class="card-row" id="monster-cards"></div>
+  </div>
+
+  <!-- BATTLE LOG -->
+  <div id="battle-log-zone">
+    <div id="battle-log">
+      <div id="battle-log-text">The dungeon trembles... Deal your first card!</div>
+    </div>
+  </div>
+
+  <!-- JOKER BAR (Balatro style power-ups) -->
+  <div id="joker-bar">
+    <div class="joker-label">JOKERS</div>
+    <div class="joker-card" id="joker-1" onclick="useJoker(1)">
+      🃏<span>FOOL'S LUCK</span>
+      <div class="joker-tooltip">Remove your highest card once</div>
+    </div>
+    <div class="joker-card" id="joker-2" onclick="useJoker(2)">
+      💀<span>DEATH DRAW</span>
+      <div class="joker-tooltip">Deal 15 damage regardless of score</div>
+    </div>
+    <div class="joker-card" id="joker-3" onclick="useJoker(3)">
+      ⚡<span>LIGHTNING</span>
+      <div class="joker-tooltip">Double your next hit's damage</div>
+    </div>
+    <div class="joker-card" id="joker-4" onclick="useJoker(4)">
+      🛡<span>IRON SKIN</span>
+      <div class="joker-tooltip">Block next monster attack</div>
+    </div>
+  </div>
+
+  <!-- PLAYER ZONE -->
+  <div id="player-zone">
+    <div id="player-header">
+      <div id="player-info">
+        <div id="player-name">⚔ CARD DUELIST</div>
+        <div id="player-hp-bar">
+          <div class="hp-label">HP: <span id="player-hp-text">100</span> / 100</div>
+          <div class="bar-track"><div class="bar-fill" id="player-hp-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div id="player-score">0</div>
+    </div>
+    <div class="card-row" id="player-cards"></div>
+    <div id="action-bar">
+      <button class="action-btn" id="btn-hit" onclick="playerHit()">🃏 HIT</button>
+      <button class="action-btn" id="btn-stand" onclick="playerStand()">🛑 STAND</button>
+      <button class="action-btn" id="btn-special" onclick="playerSpecial()">
+        💥 SPECIAL
+        <span id="special-charges">(2 charges left)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TURN INDICATOR -->
+<div id="turn-indicator"></div>
+
+<!-- DAMAGE FLASH -->
+<div id="damage-flash"></div>
+
+<!-- GAME OVER -->
+<div id="game-over-overlay" style="display:none; flex-direction:column;">
+  <div id="game-over-title"></div>
+  <div id="game-over-msg" style="font-size:1.2rem; font-style:italic; opacity:0.8;"></div>
+  <button class="big-btn" onclick="startGame()" style="margin-top:1rem;">⚔ PLAY AGAIN</button>
+</div>
+
+  <script src="../static/game.js" defer></script>
+</body>
+</html>

@@ -12,6 +12,8 @@ function updateHP() {
   const mPct = (state.monsterHP / state.monsterMaxHP * 100).toFixed(1);
   document.getElementById('monster-hp-fill').style.width = mPct + '%';
   document.getElementById('monster-hp-text').textContent = Math.round(state.monsterHP);
+  const monsterMaxEl = document.getElementById('monster-hp-max');
+  if (monsterMaxEl) monsterMaxEl.textContent = Math.round(state.monsterMaxHP);
   const pPct = (state.playerHP / 100 * 100).toFixed(1);
   document.getElementById('player-hp-fill').style.width = pPct + '%';
   document.getElementById('player-hp-text').textContent = Math.round(state.playerHP);
@@ -33,12 +35,19 @@ function setButtons(enabled) {
   ['btn-hit','btn-stand','btn-special'].forEach(id => {
     document.getElementById(id).disabled = !enabled;
   });
-  if (enabled) document.getElementById('btn-special').disabled = (state.specialCharges <= 0);
+  if (enabled) {
+    document.getElementById('btn-special').disabled = (!state.unlocked?.special || state.specialCharges <= 0);
+  }
 }
 
 function updateSpecialBtn() {
-  document.getElementById('special-charges').textContent = `(${state.specialCharges} charges left)`;
-  document.getElementById('btn-special').disabled = (state.specialCharges <= 0);
+  const label = document.getElementById('special-charges');
+  if (state.unlocked?.special) {
+    label.textContent = `(${state.specialCharges} charges left | ${state.coins} coins)`;
+  } else {
+    label.textContent = `(Locked | ${state.coins} coins)`;
+  }
+  document.getElementById('btn-special').disabled = (!state.unlocked?.special || state.specialCharges <= 0);
 }
 
 function showTurnBanner(text, color) {

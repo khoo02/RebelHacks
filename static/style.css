@@ -46,9 +46,7 @@ font-family: 'Cinzel Decorative', cursive;
 font-size: clamp(2rem, 6vw, 5rem);
 font-weight: 900;
 background: linear-gradient(135deg, #d4a017, #ff9f43, #d4a017, #e74c3c);
-background-clip: text;
 -webkit-background-clip: text;
-color: transparent;
 -webkit-text-fill-color: transparent;
 text-shadow: none;
 filter: drop-shadow(0 0 30px rgba(212,160,23,0.5));
@@ -466,6 +464,65 @@ font-weight: 900;
 .victory   { color: #d4a017; text-shadow: 0 0 40px rgba(212,160,23,0.8); }
 .defeat    { color: #c0392b; text-shadow: 0 0 40px rgba(192,57,43,0.8); }
 
+/* SHOP */
+#shop-overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(10,6,8,0.86);
+z-index: 950;
+align-items: center;
+justify-content: center;
+padding: 1.5rem;
+}
+
+#shop-panel {
+width: min(560px, 95vw);
+background: linear-gradient(160deg, rgba(45,27,78,0.95), rgba(10,6,8,0.95));
+border: 1px solid var(--gold);
+box-shadow: 0 0 35px rgba(212,160,23,0.25);
+padding: 1.2rem;
+text-align: center;
+clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+}
+
+#shop-title {
+font-family: 'Cinzel Decorative', cursive;
+font-size: 1.6rem;
+color: var(--gold);
+letter-spacing: 0.06em;
+}
+
+#shop-subtitle {
+font-size: 1rem;
+opacity: 0.8;
+margin-top: 0.35rem;
+}
+
+#shop-coins-wrap {
+margin-top: 0.8rem;
+font-size: 1rem;
+}
+
+#shop-coins {
+color: var(--gold);
+font-weight: 700;
+}
+
+#shop-actions {
+display: grid;
+grid-template-columns: repeat(3, minmax(0, 1fr));
+gap: 0.6rem;
+margin-top: 1rem;
+}
+
+.shop-btn {
+padding: 0.7rem 0.4rem;
+font-size: 0.7rem;
+background: linear-gradient(135deg, #1a5276, #2d1b4e);
+color: #e8d5a3;
+}
+
 /* EFFECTS */
 .shake { animation: shake 0.4s ease; }
 @keyframes shake {
@@ -500,123 +557,5 @@ text-shadow: 0 0 20px rgba(231,76,60,0.8);
 .card { width: 55px; height: 80px; }
 .card-center { font-size: 1.4rem; }
 #monster-sprite { font-size: 2.5rem; }
-}
-/* ══════════════════════════════════════════
-   TITLE SCREEN — MODE SELECTION
-══════════════════════════════════════════ */
-.mode-select-container {
-  display: flex;
-  align-items: stretch;
-  max-width: 680px;
-  width: 100%;
-  padding: 0 1rem;
-}
-
-.mode-card {
-  flex: 1;
-  background: linear-gradient(160deg, rgba(212,160,23,0.08) 0%, rgba(10,6,8,0.6) 100%);
-  border: 1px solid rgba(212,160,23,0.35);
-  border-radius: 12px;
-  padding: 2rem 1.5rem;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.6rem;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.mode-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  opacity: 0;
-  transition: opacity 0.25s;
-  background: radial-gradient(ellipse at 50% 0%, rgba(212,160,23,0.15), transparent 70%);
-}
-.mode-card:hover::before { opacity: 1; }
-.mode-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(212,160,23,0.7);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,160,23,0.3);
-}
-
-.mode-card-realistic {
-  background: linear-gradient(160deg, rgba(52,152,219,0.08) 0%, rgba(10,6,8,0.6) 100%);
-  border-color: rgba(52,152,219,0.35);
-}
-.mode-card-realistic::before {
-  background: radial-gradient(ellipse at 50% 0%, rgba(52,152,219,0.15), transparent 70%);
-}
-.mode-card-realistic:hover {
-  border-color: rgba(52,152,219,0.7);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(52,152,219,0.3);
-}
-
-.mode-icon {
-  font-size: 2.8rem;
-  filter: drop-shadow(0 0 12px rgba(212,160,23,0.4));
-}
-
-.mode-title {
-  font-family: 'Cinzel Decorative', cursive;
-  font-size: 1rem;
-  color: var(--gold);
-  letter-spacing: 0.08em;
-}
-.mode-card-realistic .mode-title { color: #3498db; }
-
-.mode-desc {
-  font-size: 0.9rem;
-  font-style: italic;
-  color: rgba(232,213,163,0.6);
-  line-height: 1.5;
-  flex: 1;
-}
-
-.mode-tag {
-  display: inline-block;
-  background: rgba(212,160,23,0.15);
-  border: 1px solid rgba(212,160,23,0.4);
-  color: var(--gold);
-  font-family: 'Cinzel Decorative', cursive;
-  font-size: 0.55rem;
-  letter-spacing: 0.15em;
-  padding: 0.25rem 0.7rem;
-  border-radius: 20px;
-  margin-top: 0.4rem;
-}
-.mode-tag-blue {
-  background: rgba(52,152,219,0.15);
-  border-color: rgba(52,152,219,0.4);
-  color: #3498db;
-}
-
-.mode-divider {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0 1rem;
-  font-family: 'Cinzel Decorative', cursive;
-  font-size: 0.8rem;
-  opacity: 0.4;
-  flex-shrink: 0;
-}
-.mode-divider-line {
-  width: 1px;
-  flex: 1;
-  background: rgba(212,160,23,0.25);
-}
-
-@media(max-width: 600px) {
-  .mode-select-container { flex-direction: column; align-items: center; }
-  .mode-divider { flex-direction: row; padding: 0.5rem 0; width: 100%; max-width: 320px; }
-  .mode-divider-line { width: auto; height: 1px; flex: 1; }
-  .mode-card { width: 100%; max-width: 320px; }
+#shop-actions { grid-template-columns: 1fr; }
 }

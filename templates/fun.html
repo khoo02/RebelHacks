@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackJack Brawl — Vegas Dungeon</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+
+<!-- Title screen hidden — fun.html auto-starts the game -->
+<div id="title-screen" style="display:none;"></div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+
+  <!-- MONSTER ZONE -->
+  <div id="monster-zone">
+    <div class="zone-label">▲ ENEMY LAIR</div>
+    <div id="monster-header">
+      <div id="monster-sprite">👹</div>
+      <div id="monster-info">
+        <div id="monster-name">VOID DEALER</div>
+        <div id="monster-hp-bar">
+          <div class="hp-label">HP: <span id="monster-hp-text">100</span> / <span id="monster-hp-max">100</span></div>
+          <div class="bar-track"><div class="bar-fill" id="monster-hp-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div id="monster-score">?</div>
+    </div>
+    <div class="card-row" id="monster-cards"></div>
+  </div>
+
+  <!-- BATTLE LOG -->
+  <div id="battle-log-zone">
+    <div id="battle-log">
+      <div id="battle-log-text">The dungeon trembles... Deal your first card!</div>
+    </div>
+  </div>
+
+  <!-- JOKER BAR (Balatro style power-ups) -->
+  <div id="joker-bar">
+    <div class="joker-label">JOKERS</div>
+    <div class="joker-card" id="joker-1" onclick="useJoker(1)">
+      🃏<span>FOOL'S LUCK</span>
+      <div class="joker-tooltip">Remove your highest card once</div>
+    </div>
+    <div class="joker-card" id="joker-2" onclick="useJoker(2)">
+      💀<span>DEATH DRAW</span>
+      <div class="joker-tooltip">Deal 15 damage regardless of score</div>
+    </div>
+    <div class="joker-card" id="joker-3" onclick="useJoker(3)">
+      ⚡<span>LIGHTNING</span>
+      <div class="joker-tooltip">Double your next hit's damage</div>
+    </div>
+    <div class="joker-card" id="joker-4" onclick="useJoker(4)">
+      🛡<span>IRON SKIN</span>
+      <div class="joker-tooltip">Block next monster attack</div>
+    </div>
+  </div>
+
+  <!-- PLAYER ZONE -->
+  <div id="player-zone">
+    <div id="player-header">
+      <div id="player-info">
+        <div id="player-name">⚔ CARD DUELIST</div>
+        <div id="player-hp-bar">
+          <div class="hp-label">HP: <span id="player-hp-text">100</span> / 100</div>
+          <div class="bar-track"><div class="bar-fill" id="player-hp-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div id="player-score">0</div>
+    </div>
+    <div class="card-row" id="player-cards"></div>
+    <div id="action-bar">
+      <button class="action-btn" id="btn-hit" onclick="playerHit()">🃏 HIT</button>
+      <button class="action-btn" id="btn-stand" onclick="playerStand()">🛑 STAND</button>
+      <button class="action-btn" id="btn-special" onclick="playerSpecial()">
+        💥 SPECIAL
+        <span id="special-charges">(2 charges left)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TURN INDICATOR -->
+<div id="turn-indicator"></div>
+
+<!-- DAMAGE FLASH -->
+<div id="damage-flash"></div>
+
+<!-- GAME OVER -->
+<div id="game-over-overlay" style="display:none; flex-direction:column;">
+  <div id="game-over-title"></div>
+  <div id="game-over-msg" style="font-size:1.2rem; font-style:italic; opacity:0.8;"></div>
+  <button class="big-btn" onclick="startGame()" style="margin-top:1rem;">⚔ PLAY AGAIN</button>
+  <button class="big-btn" onclick="window.location.href='index.html'" style="margin-top:0.5rem; background:rgba(255,255,255,0.06); border:1px solid rgba(212,160,23,0.3); font-size:0.9rem;">🏠 MAIN MENU</button>
+</div>
+
+<!-- SHOP -->
+<div id="shop-overlay" style="display:none;">
+  <div id="shop-panel">
+    <div id="shop-title">DUNGEON SHOP</div>
+    <div id="shop-subtitle">Spend coins before the next floor.</div>
+    <div id="shop-coins-wrap">Coins: <span id="shop-coins">0</span></div>
+    <div id="shop-actions">
+      <button class="action-btn shop-btn" id="shop-heal-btn" onclick="shopBuy('heal')">HEAL +20 (8)</button>
+      <button class="action-btn shop-btn" id="shop-charge-btn" onclick="shopBuy('charge')">SPECIAL +1 (6)</button>
+      <button class="action-btn shop-btn" id="shop-refresh-btn" onclick="shopBuy('refresh')">REFRESH JOKERS (7)</button>
+    </div>
+    <button class="big-btn" onclick="leaveShop()" style="margin-top:1rem;">CONTINUE</button>
+  </div>
+</div>
+
+    <script src="../static/ui.js" defer></script>
+    <script src="../static/features.js" defer></script>
+    <script src="../static/game.js" defer></script>
+    <script>document.addEventListener("DOMContentLoaded", function() { window.addEventListener("load", function() { if (typeof startGame === "function") startGame(); }); });</script>
+</body>
+</html>

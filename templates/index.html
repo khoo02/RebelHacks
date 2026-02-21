@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlackJack Brawl — Vegas Dungeon</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../static/style.css">
 </head>
 <body>
 
-<div id="title-screen" style="display: flex;">
+<div id="title-screen" style="display:flex;">
   <div style="font-size:5rem; filter: drop-shadow(0 0 40px rgba(212,160,23,0.6))">🂡</div>
   <h1>BlackJack<br>BRAWL</h1>
   <p>A Vegas dungeon where cards are your weapons.<br>Choose your path below.</p>
-  
+
   <div class="mode-select-container">
     <div class="mode-card" id="mode-fun" onclick="window.location.href='fun.html'">
       <div class="mode-icon">⚔️</div>
       <div class="mode-title">FUN MODE</div>
-      <div class="mode-desc">Monsters, Jokers & special abilities. Cards as weapons in a dungeon brawl.</div>
+      <div class="mode-desc">Monsters, Jokers &amp; special abilities. Cards as weapons in a dungeon brawl.</div>
       <div class="mode-tag">FANTASY RPG</div>
     </div>
 
@@ -29,11 +29,15 @@
 
     <div class="mode-card mode-card-realistic" id="mode-realistic" onclick="window.location.href='realistic.html'">
       <div class="mode-icon">🃏</div>
-      <div class="mode-title">REALISTIC</div>
-      <div class="mode-desc">High stakes, no magic. An educational simulator showing true casino odds.</div>
-      <div class="mode-tag">CASINO SIM</div>
+      <div class="mode-title">REALISTIC MODE</div>
+      <div class="mode-desc">Standard blackjack rules. No power-ups. An educational simulator showing true casino odds.</div>
+      <div class="mode-tag mode-tag-blue">CASINO SIM</div>
     </div>
   </div>
+
+  <p style="font-size:0.85rem; opacity:0.4; margin-top:0.5rem">
+    Hit to draw &bull; Stand to end your turn &bull; Special for bonus attacks
+  </p>
 </div>
 
 </body>

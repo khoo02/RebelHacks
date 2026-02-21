@@ -9,37 +9,39 @@ const RED_SUITS = new Set(['♥','♦']);
 const DEALER_HITS_SOFT_17 = false; // S17 by default
 
 const MONSTERS = [
-  { name: 'BELLAGIO VAULT',    sprite: '🎲', hp: 90,  difficulty: 1 },
-  { name: 'MGM GRANDHOUSE',    sprite: '🎰', hp: 100, difficulty: 1.1 },
-  { name: 'CAESARS KEEP',      sprite: '🏛️', hp: 110, difficulty: 1.2 },
-  { name: 'THE VENETIAN VAULT',sprite: '🛶', hp: 95,  difficulty: 1.05 },
-  { name: 'WYNN RESORT',       sprite: '🌟', hp: 105, difficulty: 1.15 },
+  { name: 'BELLAGIO VAULT',     sprite: '🎲', hp: 90,  difficulty: 1 },
+  { name: 'MGM GRANDHOUSE',     sprite: '🎰', hp: 100, difficulty: 1.1 },
+  { name: 'CAESARS KEEP',       sprite: '🏛️', hp: 110, difficulty: 1.2 },
+  { name: 'THE VENETIAN VAULT', sprite: '🛶', hp: 95,  difficulty: 1.05 },
+  { name: 'WYNN RESORT',        sprite: '🌟', hp: 105, difficulty: 1.15 },
 ];
+const ENEMIES_PER_FLOOR = 3;
+const FLOOR_BOSS_INDEX = ENEMIES_PER_FLOOR - 1;
+const BASE_ENEMY = { name: 'HOUSE ENFORCER', sprite: '🂠', difficulty: 1 };
+
+const ABILITY_COSTS = { special: 8, jokers: { 1: 6, 2: 8, 3: 10, 4: 8 } };
+const ABILITY_LABELS = { special: 'Special Attack', 1: "Fool's Luck", 2: 'Death Draw', 3: 'Lightning', 4: 'Iron Skin' };
 
 let state = {};
 
 function isSoft17(cards) {
-  // soft 17: total 17 where an Ace counts as 11 (i.e., there's at least one ace counted as 11)
+  // soft 17: total 17 where an Ace counts as 11
   let total = 0, aces = 0;
   for (let c of cards) {
     if (c.value === 'A') { total += 11; aces++; }
     else if (['J','Q','K'].includes(c.value)) total += 10;
     else total += parseInt(c.value);
   }
-  // reduce aces from 11->1 as needed
   while (total > 21 && aces > 0) { total -= 10; aces--; }
-  // It's soft if total == 17 and there is at least one ace that could be counted as 11
-  // We can detect soft by checking original sum with an ace as 11 at least once.
   if (total !== 17) return false;
-  // Check if there exists an ace that is effectively counted as 11
-  // Recalculate treating all aces as 1 to see baseline
+
   let baseline = 0;
   for (let c of cards) {
     if (c.value === 'A') baseline += 1;
     else if (['J','Q','K'].includes(c.value)) baseline += 10;
     else baseline += parseInt(c.value);
   }
-  return (total > baseline);
+  return total > baseline;
 }
 
 function freshDeck() {
@@ -68,66 +70,169 @@ function handScore(cards) {
   return score;
 }
 
+function applyPlayerDamageBoost(baseDamage) {
+  const boost = typeof getTotalDamageBoost === 'function' ? getTotalDamageBoost() : 0;
+  return Math.max(0, Math.round(baseDamage * (1 + boost)));
+}
+
+function floorEnemyHP(depth) {
+  return Math.max(10, depth * 10);
+}
+
+function pickNextBoss() {
+  if (!Array.isArray(state.remainingBosses) || state.remainingBosses.length === 0) return null;
+  const idx = Math.floor(Math.random() * state.remainingBosses.length);
+  const [boss] = state.remainingBosses.splice(idx, 1);
+  return boss || null;
+}
+
+function buildEncounterMonster(depth, enemyIndex) {
+  const floorHP = floorEnemyHP(depth);
+  const diffScale = 0.85 + depth * 0.07;
+  const isBossEncounter = enemyIndex === FLOOR_BOSS_INDEX;
+
+  if (isBossEncounter) {
+    if (!state.floorBoss) state.floorBoss = pickNextBoss();
+    const boss = state.floorBoss;
+    if (!boss) return null;
+    return {
+      name: `${boss.name} • BOSS`,
+      sprite: boss.sprite,
+      hp: floorHP * 2,
+      difficulty: +(boss.difficulty * diffScale).toFixed(2),
+      isBoss: true,
+      bossName: boss.name,
+    };
+  }
+
+  return {
+    name: `${BASE_ENEMY.name} • F${depth}-${enemyIndex + 1}`,
+    sprite: BASE_ENEMY.sprite,
+    hp: floorHP,
+    difficulty: +(BASE_ENEMY.difficulty * diffScale).toFixed(2),
+    isBoss: false,
+    bossName: null,
+  };
+}
+
+function setupEncounter(depth, enemyIndex) {
+  const monster = buildEncounterMonster(depth, enemyIndex);
+  if (!monster) {
+    endGame(true);
+    return;
+  }
+  state.monster = monster;
+  state.monsterHP = monster.hp;
+  state.monsterMaxHP = monster.hp;
+  state.round = 1;
+  state.doubleNext = false;
+  state.blocking = false;
+  state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
+  state.playerCards = [];
+  state.monsterCards = [];
+  state.playerNatural = false;
+  state.monsterNatural = false;
+  state.phase = 'player';
+  state.busy = false;
+
+  document.getElementById('monster-sprite').textContent = monster.sprite;
+  document.getElementById('monster-name').textContent = monster.name;
+  document.getElementById('player-cards').innerHTML = '';
+  document.getElementById('monster-cards').innerHTML = '';
+  document.getElementById('monster-score').textContent = '?';
+  document.getElementById('player-score').textContent = '0';
+
+  updateHP();
+  updateAbilityUI();
+  updateSpecialBtn();
+}
+
+async function handleMonsterDefeated() {
+  state.busy = true;
+  state.phase = 'resolution';
+  setButtons(false);
+  state.clearedEncounters++;
+  const defeatedBossName = state.monster && state.monster.isBoss ? state.monster.bossName : null;
+  if (defeatedBossName && !state.defeatedBosses[defeatedBossName]) {
+    state.defeatedBosses[defeatedBossName] = true;
+    state.defeatedBossCount++;
+    if (state.defeatedBossCount >= MONSTERS.length) {
+      setLog(`Final boss defeated. All ${MONSTERS.length} bosses are down.`);
+      await sleep(900);
+      endGame(true);
+      return;
+    }
+  }
+  state.enemiesDefeatedOnFloor++;
+
+  if (state.enemiesDefeatedOnFloor < ENEMIES_PER_FLOOR) {
+    const nextEncounterIndex = state.enemiesDefeatedOnFloor;
+    const enemyNum = nextEncounterIndex + 1;
+    const isBossNext = nextEncounterIndex === FLOOR_BOSS_INDEX;
+    const nextLabel = isBossNext ? 'boss' : `enemy ${enemyNum}`;
+    setLog(`Enemy defeated. Floor ${state.depth}: ${state.enemiesDefeatedOnFloor}/${ENEMIES_PER_FLOOR} down. Next: ${nextLabel}.`);
+    await sleep(900);
+    setupEncounter(state.depth, nextEncounterIndex);
+    if (isBossNext && state.monster?.isBoss) {
+      showTurnBanner(`BOSS: ${state.monster.bossName}`, '#e74c3c');
+    } else {
+      showTurnBanner(`ENEMY ${enemyNum}`, '#8b1a6b');
+    }
+    await sleep(400);
+    dealRound();
+    return;
+  }
+
+  state.floorBoss = null;
+  state.shopPendingNextFloor = state.depth + 1;
+  setLog(`Floor ${state.depth} cleared. Visit the shop before Floor ${state.depth + 1}.`);
+  await sleep(900);
+  openShop();
+}
+
 // ══════════════════════════════════════════════
 // START / INIT
 // ══════════════════════════════════════════════
 function startGame() {
-  
-  // Check if elements exist before trying to hide them
-  const titleScreen = document.getElementById('title-screen');
-  if (titleScreen) titleScreen.style.display = 'none';
-  
-  const gameScreen = document.getElementById('game-screen');
-  if (gameScreen) gameScreen.style.display = 'flex';
-  
-  // Rest of your existing setup logic...
-
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'flex';
   document.getElementById('game-over-overlay').style.display = 'none';
-
-  const monsterIdx = Math.floor(Math.random() * MONSTERS.length);
-  const monster = MONSTERS[monsterIdx];
+  document.getElementById('shop-overlay').style.display = 'none';
 
   state = {
     deck: freshDeck(),
     playerCards: [],
     monsterCards: [],
     playerHP: 100,
-    monsterHP: monster.hp,
-    monsterMaxHP: monster.hp,
-    monster,
+    monsterHP: 1,
+    monsterMaxHP: 1,
+    monster: null,
     phase: 'player', // 'player' | 'monster' | 'resolution'
-    specialCharges: 2,
+    specialCharges: 0,
     doubleNext: false,
     blocking: false,
     jokerUsed: { 1:false, 2:false, 3:false, 4:false },
+    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
+    coins: 0,
     round: 1,
+    roundsSurvived: 0,
+    depth: 1,
+    clearedEncounters: 0,
+    enemiesDefeatedOnFloor: 0,
+    remainingBosses: MONSTERS.map(m => ({ ...m })),
+    floorBoss: null,
+    defeatedBosses: {},
+    defeatedBossCount: 0,
+    shopPendingNextFloor: null,
+    inShop: false,
     busy: false,
     playerNatural: false,
     monsterNatural: false,
   };
 
-  // Update monster UI
-  document.getElementById('monster-sprite').textContent = monster.sprite;
-  document.getElementById('monster-name').textContent = monster.name;
-  updateHP();
-
-  // Reset jokers
-  for (let i=1; i<=4; i++) {
-    const j = document.getElementById(`joker-${i}`);
-    j.classList.remove('used');
-  }
-
-  // Reset cards
-  document.getElementById('player-cards').innerHTML = '';
-  document.getElementById('monster-cards').innerHTML = '';
-  document.getElementById('monster-score').textContent = '?';
-  document.getElementById('player-score').textContent = '0';
-
-  updateSpecialBtn();
-  setLog("A new challenger appears! Draw your first card...");
-  setButtons(true);
+  setupEncounter(1, 0);
+  setLog(`Run started. Floor 1 enemies have 10 HP. Bosses appear at the end of each floor with double HP.`);
+  setButtons(false);
 
   // Deal opening hands
   dealRound();
@@ -146,22 +251,17 @@ async function dealRound() {
 
   // Deal 2 cards each, alternating
   await drawCard('player', false, 200);
-  // Show dealer's first card face-up (standard blackjack shows one dealer card)
-  await drawCard('monster', false,  400);
+  await drawCard('monster', false, 400);
   await drawCard('player', false, 600);
-  // Dealer second card remains face-down
   await drawCard('monster', true,  800);
 
   updateScores();
-
-  // Check for naturals (blackjack) immediately after the opening deal
   state.playerNatural = handScore(state.playerCards) === 21 && state.playerCards.length === 2;
   state.monsterNatural = handScore(state.monsterCards) === 21 && state.monsterCards.length === 2;
   if (state.playerNatural || state.monsterNatural) {
     state.phase = 'resolution';
     setButtons(false);
     setLog("Checking for blackjacks...");
-    // Reveal dealer's hidden card(s)
     flipMonsterCards();
     await sleep(800);
     const pScore = handScore(state.playerCards);
@@ -170,7 +270,6 @@ async function dealRound() {
     await resolveRound(pScore, mScore);
     return;
   }
-
   setLog(`Round ${state.round} — Your move! Hit for another card, or Stand to attack.`);
   state.phase = 'player';
   state.busy = false;
@@ -262,7 +361,7 @@ async function playerHit() {
   if (score === 21) {
     setLog(`✨ BLACKJACK! Score 21 — automatically standing!`);
     await sleep(600);
-    await playerStand();
+    await playerStand(true);
     return;
   }
 
@@ -271,8 +370,8 @@ async function playerHit() {
   setButtons(true);
 }
 
-async function playerStand() {
-  if (state.busy || state.phase !== 'player') return;
+async function playerStand(force = false) {
+  if ((!force && state.busy) || state.phase !== 'player') return;
   state.busy = true;
   setButtons(false);
   state.phase = 'resolution';
@@ -282,30 +381,22 @@ async function playerStand() {
   flipMonsterCards();
   await sleep(1000);
 
-  // Monster draws to reach strategy score
-  // Use standard dealer rule: hit until 17 (configure soft-17 behavior separately if desired)
+  // Dealer rule: hit until 17, with configurable soft-17 behavior.
   const targetScore = 17;
   setLog(`${state.monster.name} draws cards...`);
 
-  // Dealer drawing loop with soft-17 handling
   while (state.monsterCards.length < 7) {
     const mScoreNow = handScore(state.monsterCards);
     if (mScoreNow < targetScore) {
       await drawCard('monster', false, 0);
-      renderFlippedMonsterCard();
       await sleep(700);
       continue;
     }
     if (mScoreNow > targetScore) break;
-    // mScoreNow === targetScore (17): check soft-17 rule
-    if (mScoreNow === targetScore) {
-      if (DEALER_HITS_SOFT_17 && isSoft17(state.monsterCards)) {
-        await drawCard('monster', false, 0);
-        renderFlippedMonsterCard();
-        await sleep(700);
-        continue;
-      }
-      break;
+    if (DEALER_HITS_SOFT_17 && isSoft17(state.monsterCards)) {
+      await drawCard('monster', false, 0);
+      await sleep(700);
+      continue;
     }
     break;
   }
@@ -337,20 +428,29 @@ function renderFlippedMonsterCard() {
 }
 
 async function playerSpecial() {
-  if (state.busy || state.phase !== 'player' || state.specialCharges <= 0) return;
+  if (state.busy || state.phase !== 'player') return;
+  if (!state.unlocked.special) {
+    setLog(`Special Attack is locked. Earn coins in battle to unlock it (${ABILITY_COSTS.special} coins).`);
+    return;
+  }
+  if (state.specialCharges <= 0) {
+    setLog("No Special Attack charges left.");
+    return;
+  }
   state.specialCharges--;
   updateSpecialBtn();
   state.busy = true;
   setButtons(false);
 
-  const dmg = Math.floor(Math.random() * 15) + 10;
+  const baseDmg = Math.floor(Math.random() * 15) + 10;
+  const dmg = applyPlayerDamageBoost(baseDmg);
   showDamageNumber(dmg, '#c0392b', 'monster');
   flashScreen('#c0392b');
   dealDamage('monster', dmg);
   setLog(`💥 SPECIAL ATTACK! You unleash arcane energy for ${dmg} damage!`);
   await sleep(1000);
 
-  if (state.monsterHP <= 0) { endGame(true); return; }
+  if (state.monsterHP <= 0) { await handleMonsterDefeated(); return; }
 
   state.busy = false;
   setButtons(true);
@@ -363,24 +463,28 @@ async function resolveRound(pScore, mScore) {
   const mBust  = mScore > 21;
   const pBust  = pScore > 21;
   const pNatural = !!state.playerNatural;
-  const mNatural = !!state.monsterNatural;
   let msg = '';
   let playerDmg = 0, monsterDmg = 0;
+  let outcome = 'draw';
 
   if (mBust && !pBust) {
     monsterDmg = 20 + pScore;
     msg = `Monster BUSTS at ${mScore}! You deal ${monsterDmg} damage!`;
+    outcome = 'win';
   } else if (pBust && !mBust) {
     playerDmg = 15;
     msg = `You busted! Monster deals ${playerDmg} damage as punishment.`;
+    outcome = 'loss';
   } else if (pBust && mBust) {
     msg = "Both busted! A chaotic draw — no damage!";
-  } else if (pScore > mScore) { 
+  } else if (pScore > mScore) {
     monsterDmg = pScore - mScore + 10;
     msg = `Victory! ${pScore} vs ${mScore} — Monster takes ${monsterDmg} damage!`;
+    outcome = 'win';
   } else if (mScore > pScore) {
     playerDmg = mScore - pScore + 5;
     msg = `Defeat! ${mScore} vs ${pScore} — You take ${playerDmg} damage!`;
+    outcome = 'loss';
   } else {
     msg = `TIE! Both at ${pScore}. No damage — but the monster plots...`;
   }
@@ -389,20 +493,20 @@ async function resolveRound(pScore, mScore) {
   await sleep(600);
 
   if (monsterDmg > 0) {
-    // Apply natural double-damage for player if configured
     if (pNatural) {
       monsterDmg = monsterDmg * 2;
       msg += " (Natural blackjack! Damage doubled.)";
     }
     let finalDmg = state.doubleNext ? monsterDmg * 2 : monsterDmg;
     state.doubleNext = false;
+    finalDmg = applyPlayerDamageBoost(finalDmg);
     showDamageNumber(finalDmg, '#d4a017', 'monster');
     flashScreen('#d4a017');
     dealDamage('monster', finalDmg);
     document.getElementById('monster-zone').classList.add('shake');
     setTimeout(() => document.getElementById('monster-zone').classList.remove('shake'), 400);
     await sleep(600);
-    if (state.monsterHP <= 0) { endGame(true); return; }
+    if (state.monsterHP <= 0) { await handleMonsterDefeated(); return; }
   }
 
   if (playerDmg > 0) {
@@ -420,8 +524,11 @@ async function resolveRound(pScore, mScore) {
     if (state.playerHP <= 0) { endGame(false); return; }
   }
 
+  grantBattleRewards(outcome);
+
   // Next round
   state.round++;
+  state.roundsSurvived++;
   await sleep(800);
   showTurnBanner("NEW ROUND", "#d4a017");
   await sleep(1200);
@@ -429,9 +536,7 @@ async function resolveRound(pScore, mScore) {
 }
 
 async function monsterAttack(fromBust=false) {
-  // Monster counterattack after player busts
-  const dmg = fromBust ? Math.floor(Math.random() * 15) + 5 : Math.floor(Math.random() * 15) + 5;
-
+  const dmg = fromBust ? 10 : Math.floor(Math.random() * 15) + 5;
   if (state.blocking) {
     setLog("🛡 Iron Skin absorbed the monster's counterattack!");
     state.blocking = false;
@@ -445,8 +550,11 @@ async function monsterAttack(fromBust=false) {
   await sleep(800);
   if (state.playerHP <= 0) { endGame(false); return; }
 
+  grantBattleRewards('loss');
+
   // New round after bust
   state.round++;
+  state.roundsSurvived++;
   state.busy = false;
   await sleep(600);
   dealRound();
@@ -455,10 +563,14 @@ async function monsterAttack(fromBust=false) {
 // ══════════════════════════════════════════════
 // JOKERS
 // ══════════════════════════════════════════════
-function useJoker(id) {
+async function useJoker(id) {
+  if (!state.unlocked.jokers[id]) {
+    setLog(`${ABILITY_LABELS[id]} is locked. Keep battling to earn it.`);
+    return;
+  }
   if (state.jokerUsed[id] || state.phase !== 'player' || state.busy) return;
   state.jokerUsed[id] = true;
-  document.getElementById(`joker-${id}`).classList.add('used');
+  updateAbilityUI();
 
   if (id === 1) {
     // Remove highest value card
@@ -470,16 +582,166 @@ function useJoker(id) {
     updateScores();
     setLog(`🃏 Fool's Luck! Removed the ${removed.value}${removed.suit}. Score: ${handScore(state.playerCards)}`);
   } else if (id === 2) {
-    dealDamage('monster', 15);
-    showDamageNumber(15, '#8b1a6b', 'monster');
-    setLog("💀 Death Draw! You deal 15 unavoidable shadow damage!");
-    if (state.monsterHP <= 0) { endGame(true); return; }
+    const dmg = applyPlayerDamageBoost(15);
+    dealDamage('monster', dmg);
+    showDamageNumber(dmg, '#8b1a6b', 'monster');
+    setLog(`💀 Death Draw! You deal ${dmg} unavoidable shadow damage!`);
+    if (state.monsterHP <= 0) { await handleMonsterDefeated(); return; }
   } else if (id === 3) {
     state.doubleNext = true;
     setLog("⚡ Lightning charged! Your next attack deals DOUBLE damage!");
   } else if (id === 4) {
     state.blocking = true;
     setLog("🛡 Iron Skin activated! The next monster attack is blocked.");
+  }
+}
+
+function grantBattleRewards(outcome) {
+  const baseCoins = outcome === 'win' ? 6 : outcome === 'draw' ? 4 : 3;
+  const bonusCoins = Math.floor(Math.random() * 3);
+  const earned = baseCoins + bonusCoins;
+  state.coins += earned;
+
+  const rewardNotes = [`+${earned} coins`];
+  const randomlyUnlocked = tryRandomUnlock();
+  if (randomlyUnlocked) rewardNotes.push(`random unlock: ${randomlyUnlocked}`);
+  rewardNotes.push('saved for shop');
+
+  if (typeof tryGrantRandomPassiveAfterBattle === 'function') {
+    tryGrantRandomPassiveAfterBattle();
+  }
+
+  updateAbilityUI();
+  updateSpecialBtn();
+  setLog(`Battle rewards: ${rewardNotes.join(' | ')}.`);
+}
+
+function updateShopUI() {
+  const coinsEl = document.getElementById('shop-coins');
+  if (coinsEl) coinsEl.textContent = `${state.coins}`;
+  const canHeal = state.coins >= 8 && state.playerHP < 100;
+  const canCharge = state.coins >= 6;
+  const canRefresh = state.coins >= 7;
+  document.getElementById('shop-heal-btn').disabled = !canHeal;
+  document.getElementById('shop-charge-btn').disabled = !canCharge;
+  document.getElementById('shop-refresh-btn').disabled = !canRefresh;
+}
+
+function openShop() {
+  state.inShop = true;
+  state.busy = true;
+  state.phase = 'shop';
+  setButtons(false);
+  updateSpecialBtn();
+  updateAbilityUI();
+  updateShopUI();
+  document.getElementById('shop-overlay').style.display = 'flex';
+}
+
+function shopBuy(kind) {
+  if (!state.inShop) return;
+  if (kind === 'heal') {
+    if (state.coins < 8 || state.playerHP >= 100) return;
+    state.coins -= 8;
+    state.playerHP = Math.min(100, state.playerHP + 20);
+    updateHP();
+    setLog('Shop: Restored 20 HP.');
+  } else if (kind === 'charge') {
+    if (state.coins < 6) return;
+    state.coins -= 6;
+    state.specialCharges++;
+    setLog('Shop: Bought +1 Special charge.');
+  } else if (kind === 'refresh') {
+    if (state.coins < 7) return;
+    state.coins -= 7;
+    state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
+    setLog('Shop: Jokers refreshed for the next floor.');
+  }
+  updateSpecialBtn();
+  updateAbilityUI();
+  updateShopUI();
+}
+
+async function leaveShop() {
+  if (!state.inShop) return;
+  if (!state.remainingBosses || state.remainingBosses.length === 0) {
+    state.inShop = false;
+    document.getElementById('shop-overlay').style.display = 'none';
+    endGame(true);
+    return;
+  }
+  const nextFloor = state.shopPendingNextFloor || (state.depth + 1);
+  state.depth = nextFloor;
+  state.enemiesDefeatedOnFloor = 0;
+  state.floorBoss = null;
+  state.shopPendingNextFloor = null;
+  state.inShop = false;
+  state.busy = false;
+  state.phase = 'player';
+  document.getElementById('shop-overlay').style.display = 'none';
+  showTurnBanner(`FLOOR ${state.depth}`, '#d4a017');
+  setupEncounter(state.depth, 0);
+  await sleep(500);
+  dealRound();
+}
+
+function tryRandomUnlock() {
+  if (Math.random() >= 0.35) return null;
+  const locked = [];
+  if (!state.unlocked.special) locked.push('special');
+  for (let i=1; i<=4; i++) if (!state.unlocked.jokers[i]) locked.push(i);
+  if (locked.length === 0) return null;
+
+  const pick = locked[Math.floor(Math.random() * locked.length)];
+  unlockAbility(pick, pick === 'special');
+  return ABILITY_LABELS[pick];
+}
+
+function buyAbilitiesWithCoins() {
+  const bought = [];
+  const locked = [];
+  if (!state.unlocked.special) locked.push({ key: 'special', cost: ABILITY_COSTS.special });
+  for (let i=1; i<=4; i++) {
+    if (!state.unlocked.jokers[i]) locked.push({ key: i, cost: ABILITY_COSTS.jokers[i] });
+  }
+
+  // Buy at most one locked ability per battle so progression feels steady.
+  const affordable = locked.filter(a => state.coins >= a.cost).sort((a,b) => a.cost - b.cost);
+  if (affordable.length > 0) {
+    const choice = affordable[0];
+    state.coins -= choice.cost;
+    unlockAbility(choice.key, true);
+    bought.push(ABILITY_LABELS[choice.key]);
+  }
+
+  // If special is already unlocked, excess coins can refill one charge.
+  if (state.unlocked.special && state.coins >= 5) {
+    state.coins -= 5;
+    state.specialCharges++;
+    bought.push('Special Charge');
+  }
+  return bought;
+}
+
+function unlockAbility(key, addSpecialCharge) {
+  if (key === 'special') {
+    state.unlocked.special = true;
+    if (addSpecialCharge) state.specialCharges++;
+    return;
+  }
+  state.unlocked.jokers[key] = true;
+}
+
+function updateAbilityUI() {
+  for (let i=1; i<=4; i++) {
+    const el = document.getElementById(`joker-${i}`);
+    if (!el) continue;
+    const unlocked = !!state.unlocked.jokers[i];
+    const consumed = !!state.jokerUsed[i];
+    el.classList.toggle('used', !unlocked || consumed);
+    el.title = unlocked
+      ? ABILITY_LABELS[i]
+      : `Locked (${ABILITY_COSTS.jokers[i]} coins)`;
   }
 }
 
@@ -513,13 +775,13 @@ function endGame(playerWon) {
   const msg     = document.getElementById('game-over-msg');
 
   if (playerWon) {
-    title.textContent = '✨ VICTORY ✨';
+    title.textContent = '✨ RUN CLEARED ✨';
     title.className = 'victory';
-    msg.textContent = `${state.monster.name} has been defeated! The dungeon trembles before you.`;
+    msg.textContent = `You defeated all ${MONSTERS.length} bosses and escaped with ${state.playerHP} HP.`;
   } else {
     title.textContent = '💀 DEFEATED 💀';
     title.className = 'defeat';
-    msg.textContent = `${state.monster.name} claims your soul. The cards were not in your favor.`;
+    msg.textContent = `${state.monster.name} ended your run on Floor ${state.depth}.`;
   }
 
   overlay.style.display = 'flex';

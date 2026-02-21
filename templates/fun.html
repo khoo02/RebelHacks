@@ -121,6 +121,18 @@
   </div>
 </div>
 
+<!-- PUSH / DOUBLE OR NOTHING -->
+<div id="push-overlay" style="display:none;">
+  <div id="push-panel">
+    <div id="push-title">PUSH</div>
+    <div id="push-subtitle">Take the push or risk double-or-nothing.</div>
+    <div id="push-actions">
+      <button class="big-btn" onclick="choosePushOption('double')">DOUBLE OR NOTHING</button>
+      <button class="action-btn shop-btn" onclick="choosePushOption('push')">TAKE PUSH</button>
+    </div>
+  </div>
+</div>
+
 <!-- SHOP -->
 <div id="shop-overlay" style="display:none;">
   <div id="shop-panel">
@@ -131,6 +143,7 @@
       <button class="action-btn shop-btn" id="shop-heal-btn" onclick="shopBuy('heal')">HEAL +20 (8)</button>
       <button class="action-btn shop-btn" id="shop-charge-btn" onclick="shopBuy('charge')">SPECIAL +1 (6)</button>
       <button class="action-btn shop-btn" id="shop-refresh-btn" onclick="shopBuy('refresh')">REFRESH JOKERS (7)</button>
+      <button class="action-btn shop-btn" id="shop-dmgboost-btn" onclick="shopBuy('damage-boost')">DAMAGE BOOST +20% (50)</button>
     </div>
     <button class="big-btn" onclick="leaveShop()" style="margin-top:1rem;">CONTINUE</button>
   </div>

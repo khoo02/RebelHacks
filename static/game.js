@@ -26,6 +26,7 @@ const SOUND_PREF_KEY = 'blackjack_brawl_sound_muted_v1';
 
 let state = {};
 let saveTimer = null;
+let pushChoiceResolver = null;
 
 const audio = {
   ctx: null,
@@ -169,7 +170,7 @@ function createInitialState() {
     doubleNext: false,
     blocking: false,
     jokerUsed: { 1:false, 2:false, 3:false, 4:false },
-    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
+    unlocked: { special: false, damageBoost: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
     coins: 0,
     round: 1,
     roundsSurvived: 0,
@@ -236,6 +237,7 @@ function scheduleSave(delay = 150) {
 function sanitizeUnlocked(unlocked) {
   return {
     special: !!unlocked?.special,
+    damageBoost: !!unlocked?.damageBoost,
     jokers: {
       1: !!unlocked?.jokers?.[1],
       2: !!unlocked?.jokers?.[2],
@@ -316,6 +318,7 @@ function showTitleScreen() {
   document.getElementById('game-screen').style.display = 'none';
   document.getElementById('game-over-overlay').style.display = 'none';
   document.getElementById('shop-overlay').style.display = 'none';
+  closePushChoice();
   updateContinueButton();
 }
 
@@ -851,8 +854,8 @@ async function resolveRound(pScore, mScore) {
 
   if (monsterDmg > 0) {
     if (pNatural) {
-      monsterDmg = monsterDmg * 2;
-      msg += " (Natural blackjack! Damage doubled.)";
+      monsterDmg = 21;
+      msg += " (Natural blackjack! Damage set to 21.)";
     }
     let finalDmg = state.doubleNext ? monsterDmg * 2 : monsterDmg;
     state.doubleNext = false;
@@ -885,6 +888,17 @@ async function resolveRound(pScore, mScore) {
   }
 
   grantBattleRewards(outcome);
+
+  if (outcome === 'draw') {
+    const shouldDouble = await promptDoubleOrNothing();
+    if (shouldDouble) {
+      state.doubleNext = true;
+      setLog('Double or nothing accepted. Your next successful attack is doubled.');
+    } else {
+      setLog('Push taken. Starting the next round.');
+    }
+    await sleep(500);
+  }
 
   // Next round
   state.round++;
@@ -973,10 +987,6 @@ function grantBattleRewards(outcome) {
   if (randomlyUnlocked) rewardNotes.push(`random unlock: ${randomlyUnlocked}`);
   rewardNotes.push('saved for shop');
 
-  if (typeof tryGrantRandomPassiveAfterBattle === 'function') {
-    tryGrantRandomPassiveAfterBattle();
-  }
-
   updateAbilityUI();
   updateSpecialBtn();
   setLog(`Battle rewards: ${rewardNotes.join(' | ')}.`);
@@ -989,9 +999,11 @@ function updateShopUI() {
   const canHeal = state.coins >= 8 && state.playerHP < 100;
   const canCharge = state.coins >= 6;
   const canRefresh = state.coins >= 7;
+  const canDamageBoost = state.coins >= 50 && !state.unlocked.damageBoost;
   document.getElementById('shop-heal-btn').disabled = !canHeal;
   document.getElementById('shop-charge-btn').disabled = !canCharge;
   document.getElementById('shop-refresh-btn').disabled = !canRefresh;
+  document.getElementById('shop-dmgboost-btn').disabled = !canDamageBoost;
 }
 
 function openEndlessChoice() {
@@ -1009,6 +1021,38 @@ function openEndlessChoice() {
 function closeEndlessChoice() {
   const overlay = document.getElementById('endless-overlay');
   if (overlay) overlay.style.display = 'none';
+}
+
+function closePushChoice() {
+  const overlay = document.getElementById('push-overlay');
+  if (overlay) overlay.style.display = 'none';
+  if (pushChoiceResolver) {
+    pushChoiceResolver(false);
+    pushChoiceResolver = null;
+  }
+}
+
+function promptDoubleOrNothing() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('push-overlay');
+    const msg = document.getElementById('push-subtitle');
+    if (!overlay || !msg) {
+      resolve(false);
+      return;
+    }
+    msg.textContent = 'Push result. Take the push or go double-or-nothing on your next successful attack.';
+    pushChoiceResolver = resolve;
+    overlay.style.display = 'flex';
+  });
+}
+
+function choosePushOption(kind) {
+  if (!pushChoiceResolver) return;
+  const resolve = pushChoiceResolver;
+  pushChoiceResolver = null;
+  const overlay = document.getElementById('push-overlay');
+  if (overlay) overlay.style.display = 'none';
+  resolve(kind === 'double');
 }
 
 function startEndlessMode() {
@@ -1071,6 +1115,12 @@ function shopBuy(kind) {
     state.coins -= 7;
     state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
     setLog('Shop: Jokers refreshed for the next floor.');
+  } else if (kind === 'damage-boost') {
+    if (state.coins < 50 || state.unlocked.damageBoost) return;
+    state.coins -= 50;
+    state.unlocked.damageBoost = true;
+    state.passiveBoosts = [{ type: 'damageBoost', amount: 0.2 }];
+    setLog('Shop: Damage Boost unlocked. +20% damage on your attacks.');
   }
   playSfx('shop');
   updateSpecialBtn();
@@ -1189,6 +1239,7 @@ function refreshPlayerCards() {
 // ══════════════════════════════════════════════
 function endGame(playerWon) {
   closeEndlessChoice();
+  closePushChoice();
   const overlay = document.getElementById('game-over-overlay');
   const title   = document.getElementById('game-over-title');
   const msg     = document.getElementById('game-over-msg');
@@ -1211,3 +1262,5 @@ function endGame(playerWon) {
   clearSavedRun();
   overlay.style.display = 'flex';
 }
+
+window.choosePushOption = choosePushOption;

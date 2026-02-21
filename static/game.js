@@ -180,6 +180,7 @@ function createInitialState() {
     floorBoss: null,
     defeatedBosses: {},
     defeatedBossCount: 0,
+    endlessMode: false,
     shopPendingNextFloor: null,
     inShop: false,
     busy: false,
@@ -217,6 +218,7 @@ function saveProgress() {
     floorBoss: state.floorBoss,
     defeatedBosses: state.defeatedBosses,
     defeatedBossCount: state.defeatedBossCount,
+    endlessMode: !!state.endlessMode,
     shopPendingNextFloor: state.shopPendingNextFloor,
     inShop: state.inShop,
     passives: state.passiveBoosts || [],
@@ -270,12 +272,13 @@ function tryResumeSavedRun() {
   state.depth = Math.max(1, Number(saved.depth) || 1);
   state.clearedEncounters = Math.max(0, Number(saved.clearedEncounters) || 0);
   state.enemiesDefeatedOnFloor = Math.max(0, Math.min(ENEMIES_PER_FLOOR - 1, Number(saved.enemiesDefeatedOnFloor) || 0));
-  state.remainingBosses = Array.isArray(saved.remainingBosses) && saved.remainingBosses.length > 0
+  state.remainingBosses = Array.isArray(saved.remainingBosses)
     ? saved.remainingBosses
     : MONSTERS.map(m => ({ ...m }));
   state.floorBoss = saved.floorBoss || null;
   state.defeatedBosses = saved.defeatedBosses || {};
   state.defeatedBossCount = Math.max(0, Number(saved.defeatedBossCount) || 0);
+  state.endlessMode = !!saved.endlessMode;
   state.shopPendingNextFloor = saved.shopPendingNextFloor || null;
   state.inShop = !!saved.inShop;
   state.passiveBoosts = Array.isArray(saved.passives) ? saved.passives : [];
@@ -343,6 +346,9 @@ window.startNewRun = startNewRun;
 window.continueRun = continueRun;
 window.quitToTitle = quitToTitle;
 window.initTitleScreen = initTitleScreen;
+window.startEndlessMode = startEndlessMode;
+window.finishRunNow = finishRunNow;
+window.startEndlessFromGameOver = startEndlessFromGameOver;
 installAudioUnlock();
 
 function isSoft17(cards) {
@@ -407,13 +413,51 @@ function pickNextBoss() {
   return boss || null;
 }
 
+function buildEndlessBoss(depth) {
+  const archetype = MONSTERS[(depth - 1) % MONSTERS.length] || BASE_ENEMY;
+  return {
+    name: `ENDLESS ${archetype.name} F${depth}`,
+    bossName: archetype.name,
+    sprite: archetype.sprite || BASE_ENEMY.sprite,
+    difficulty: +(1.2 + depth * 0.08).toFixed(2),
+    isEndless: true,
+  };
+}
+
+function grantEnemyDefeatRewards() {
+  const isBoss = !!state.monster?.isBoss;
+  const coinsEarned = (isBoss ? 12 : 6) + Math.floor(state.depth / 2) + Math.floor(Math.random() * 4);
+  const notes = [`+${coinsEarned} coins`];
+  state.coins += coinsEarned;
+
+  if (state.playerHP < 100 && Math.random() < (isBoss ? 0.65 : 0.25)) {
+    const healAmt = isBoss ? 10 : 4;
+    state.playerHP = Math.min(100, state.playerHP + healAmt);
+    updateHP();
+    notes.push(`+${healAmt} HP`);
+  }
+
+  if (state.unlocked?.special && Math.random() < (isBoss ? 0.45 : 0.2)) {
+    state.specialCharges++;
+    notes.push('+1 Special charge');
+  }
+
+  updateSpecialBtn();
+  updateAbilityUI();
+  scheduleSave();
+  return `Defeat rewards: ${notes.join(' | ')}.`;
+}
+
 function buildEncounterMonster(depth, enemyIndex) {
   const floorHP = floorEnemyHP(depth);
   const diffScale = 0.85 + depth * 0.07;
   const isBossEncounter = enemyIndex === FLOOR_BOSS_INDEX;
 
   if (isBossEncounter) {
-    if (!state.floorBoss) state.floorBoss = pickNextBoss();
+    if (!state.floorBoss) {
+      state.floorBoss = pickNextBoss();
+      if (!state.floorBoss && state.endlessMode) state.floorBoss = buildEndlessBoss(depth);
+    }
     const boss = state.floorBoss;
     if (!boss) return null;
     return {
@@ -422,7 +466,8 @@ function buildEncounterMonster(depth, enemyIndex) {
       hp: floorHP * 2,
       difficulty: +(boss.difficulty * diffScale).toFixed(2),
       isBoss: true,
-      bossName: boss.name,
+      isEndless: !!boss.isEndless,
+      bossName: boss.bossName || boss.name,
     };
   }
 
@@ -432,6 +477,7 @@ function buildEncounterMonster(depth, enemyIndex) {
     hp: floorHP,
     difficulty: +(BASE_ENEMY.difficulty * diffScale).toFixed(2),
     isBoss: false,
+    isEndless: false,
     bossName: null,
   };
 }
@@ -474,14 +520,18 @@ async function handleMonsterDefeated() {
   setButtons(false);
   playSfx('win');
   state.clearedEncounters++;
-  const defeatedBossName = state.monster && state.monster.isBoss ? state.monster.bossName : null;
+  const rewardSummary = grantEnemyDefeatRewards();
+  const defeatedBossName = state.monster && state.monster.isBoss && !state.monster.isEndless
+    ? state.monster.bossName
+    : null;
   if (defeatedBossName && !state.defeatedBosses[defeatedBossName]) {
     state.defeatedBosses[defeatedBossName] = true;
     state.defeatedBossCount++;
-    if (state.defeatedBossCount >= MONSTERS.length) {
-      setLog(`Final boss defeated. All ${MONSTERS.length} bosses are down.`);
+    if (state.defeatedBossCount >= MONSTERS.length && !state.endlessMode) {
+      state.enemiesDefeatedOnFloor = ENEMIES_PER_FLOOR;
+      setLog(`Final boss defeated. All ${MONSTERS.length} bosses are down. ${rewardSummary}`);
       await sleep(900);
-      endGame(true);
+      openEndlessChoice();
       return;
     }
   }
@@ -492,7 +542,7 @@ async function handleMonsterDefeated() {
     const enemyNum = nextEncounterIndex + 1;
     const isBossNext = nextEncounterIndex === FLOOR_BOSS_INDEX;
     const nextLabel = isBossNext ? 'boss' : `enemy ${enemyNum}`;
-    setLog(`Enemy defeated. Floor ${state.depth}: ${state.enemiesDefeatedOnFloor}/${ENEMIES_PER_FLOOR} down. Next: ${nextLabel}.`);
+    setLog(`Enemy defeated. Floor ${state.depth}: ${state.enemiesDefeatedOnFloor}/${ENEMIES_PER_FLOOR} down. ${rewardSummary} Next: ${nextLabel}.`);
     await sleep(900);
     setupEncounter(state.depth, nextEncounterIndex);
     scheduleSave();
@@ -509,7 +559,7 @@ async function handleMonsterDefeated() {
   state.floorBoss = null;
   state.shopPendingNextFloor = state.depth + 1;
   scheduleSave();
-  setLog(`Floor ${state.depth} cleared. Visit the shop before Floor ${state.depth + 1}.`);
+  setLog(`Floor ${state.depth} cleared. ${rewardSummary} Visit the shop before Floor ${state.depth + 1}.`);
   await sleep(900);
   openShop();
 }
@@ -522,6 +572,7 @@ function startGame(forceNew = false) {
   document.getElementById('game-screen').style.display = 'flex';
   document.getElementById('game-over-overlay').style.display = 'none';
   document.getElementById('shop-overlay').style.display = 'none';
+  closeEndlessChoice();
   updateSoundButton();
   if (!forceNew && tryResumeSavedRun()) return;
 
@@ -943,6 +994,52 @@ function updateShopUI() {
   document.getElementById('shop-refresh-btn').disabled = !canRefresh;
 }
 
+function openEndlessChoice() {
+  state.busy = true;
+  state.phase = 'endless_choice';
+  setButtons(false);
+  const overlay = document.getElementById('endless-overlay');
+  if (!overlay) {
+    endGame(true);
+    return;
+  }
+  overlay.style.display = 'flex';
+}
+
+function closeEndlessChoice() {
+  const overlay = document.getElementById('endless-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function startEndlessMode() {
+  state.endlessMode = true;
+  state.floorBoss = null;
+  state.shopPendingNextFloor = state.depth + 1;
+  closeEndlessChoice();
+  setLog(`Endless mode activated. Floor ${state.depth + 1} and beyond never end.`);
+  scheduleSave();
+  openShop();
+}
+
+function finishRunNow() {
+  closeEndlessChoice();
+  endGame(true);
+}
+
+function startEndlessFromGameOver() {
+  const overlay = document.getElementById('game-over-overlay');
+  if (overlay) overlay.style.display = 'none';
+  state.endlessMode = true;
+  state.inShop = false;
+  state.busy = false;
+  state.phase = 'player';
+  state.floorBoss = null;
+  state.shopPendingNextFloor = state.depth + 1;
+  setLog(`Endless mode activated. Floor ${state.depth + 1} and beyond never end.`);
+  scheduleSave();
+  openShop();
+}
+
 function openShop() {
   state.inShop = true;
   state.busy = true;
@@ -984,7 +1081,7 @@ function shopBuy(kind) {
 
 async function leaveShop() {
   if (!state.inShop) return;
-  if (!state.remainingBosses || state.remainingBosses.length === 0) {
+  if ((!state.remainingBosses || state.remainingBosses.length === 0) && !state.endlessMode) {
     state.inShop = false;
     document.getElementById('shop-overlay').style.display = 'none';
     endGame(true);
@@ -1091,14 +1188,18 @@ function refreshPlayerCards() {
 // GAME END
 // ══════════════════════════════════════════════
 function endGame(playerWon) {
+  closeEndlessChoice();
   const overlay = document.getElementById('game-over-overlay');
   const title   = document.getElementById('game-over-title');
   const msg     = document.getElementById('game-over-msg');
+  const endlessBtn = document.getElementById('btn-endless-from-end');
+  if (endlessBtn) endlessBtn.style.display = 'none';
 
   if (playerWon) {
     title.textContent = '✨ RUN CLEARED ✨';
     title.className = 'victory';
     msg.textContent = `You defeated all ${MONSTERS.length} bosses and escaped with ${state.playerHP} HP.`;
+    if (!state.endlessMode && endlessBtn) endlessBtn.style.display = 'inline-block';
     playSfx('win');
   } else {
     title.textContent = '💀 DEFEATED 💀';

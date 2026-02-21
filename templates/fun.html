@@ -104,8 +104,21 @@
 <div id="game-over-overlay" style="display:none; flex-direction:column;">
   <div id="game-over-title"></div>
   <div id="game-over-msg" style="font-size:1.2rem; font-style:italic; opacity:0.8;"></div>
+  <button class="big-btn" id="btn-endless-from-end" onclick="startEndlessFromGameOver()" style="margin-top:1rem; display:none;">ENDLESS MODE</button>
   <button class="big-btn" onclick="startNewRun()" style="margin-top:1rem;">⚔ PLAY AGAIN</button>
   <button class="big-btn" onclick="window.location.href='index.html'" style="margin-top:0.5rem; background:rgba(255,255,255,0.06); border:1px solid rgba(212,160,23,0.3); font-size:0.9rem;">🏠 MAIN MENU</button>
+</div>
+
+<!-- ENDLESS MODE PROMPT -->
+<div id="endless-overlay" style="display:none;">
+  <div id="endless-panel">
+    <div id="endless-title">ALL BOSSES DEFEATED</div>
+    <div id="endless-subtitle">Continue into Endless Mode? Floors continue forever and enemies keep scaling.</div>
+    <div id="endless-actions">
+      <button class="big-btn" onclick="startEndlessMode()">ENTER ENDLESS</button>
+      <button class="action-btn shop-btn" onclick="finishRunNow()">END RUN</button>
+    </div>
+  </div>
 </div>
 
 <!-- SHOP -->
@@ -129,3 +142,4 @@
     <script>document.addEventListener("DOMContentLoaded", function() { window.addEventListener("load", function() { if (typeof initTitleScreen === "function") initTitleScreen(); }); });</script>
 </body>
 </html>
+

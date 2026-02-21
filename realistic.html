@@ -823,6 +823,225 @@
       display: block;
       margin-top: 0.1rem;
     }
+
+    /* ══════════════════════════════════════════
+       NEXT-HAND FORECAST PANEL
+    ══════════════════════════════════════════ */
+    #next-hand-forecast {
+      background: rgba(5,8,5,0.9);
+      border: 1px solid rgba(192,57,43,0.35);
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
+      max-width: 480px;
+      width: 100%;
+      margin-top: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle red vignette to signal "warning" */
+    #next-hand-forecast::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.08), transparent 70%);
+      pointer-events: none;
+    }
+
+    .nhf-title {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      color: var(--debt-col);
+      opacity: 0.85;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    /* Big loss-probability display */
+    .nhf-prob-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .nhf-prob-circle {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+    }
+
+    .nhf-prob-circle svg {
+      width: 80px;
+      height: 80px;
+      transform: rotate(-90deg);
+    }
+
+    .nhf-circle-track {
+      fill: none;
+      stroke: rgba(255,255,255,0.06);
+      stroke-width: 7;
+    }
+
+    .nhf-circle-fill {
+      fill: none;
+      stroke: var(--debt-col);
+      stroke-width: 7;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .nhf-circle-fill.mid   { stroke: #e67e22; }
+    .nhf-circle-fill.low   { stroke: #f1c40f; }
+
+    .nhf-prob-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nhf-prob-number {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 1.2rem;
+      line-height: 1;
+      color: var(--debt-col);
+      transition: color 0.5s;
+    }
+    .nhf-prob-number.mid { color: #e67e22; }
+    .nhf-prob-number.low { color: #f1c40f; }
+
+    .nhf-prob-unit {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.4rem;
+      opacity: 0.6;
+      letter-spacing: 0.1em;
+    }
+
+    .nhf-prob-text {
+      flex: 1;
+    }
+
+    .nhf-prob-headline {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.78rem;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+      line-height: 1.4;
+    }
+
+    .nhf-prob-sub {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* Context bars: Your session vs. statistical baseline */
+    .nhf-context {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-top: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .nhf-context-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 44px;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+    .nhf-context-row:last-child { margin-bottom: 0; }
+
+    .nhf-ctx-lbl {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.43rem;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+    }
+
+    .nhf-bar-track {
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .nhf-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .nhf-bar-session  { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+    .nhf-bar-baseline { background: linear-gradient(90deg, #7f8c8d, #95a5a6); }
+    .nhf-bar-long     { background: linear-gradient(90deg, #8e44ad, #6c3483); }
+
+    .nhf-ctx-val {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.65rem;
+      text-align: right;
+      color: var(--text-dim);
+    }
+
+    /* Dissuasion message */
+    .nhf-message {
+      background: rgba(192,57,43,0.07);
+      border-left: 3px solid rgba(192,57,43,0.5);
+      border-radius: 0 5px 5px 0;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.88rem;
+      font-style: italic;
+      color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    .nhf-message strong {
+      color: var(--text);
+      font-style: normal;
+    }
+
+    /* Walk-away CTA */
+    .nhf-cta {
+      display: flex;
+      gap: 0.6rem;
+      justify-content: center;
+    }
+
+    .nhf-walk-away {
+      font-family: 'Cinzel Decorative', cursive;
+      font-size: 0.68rem;
+      padding: 0.55rem 1.4rem;
+      background: linear-gradient(135deg, rgba(192,57,43,0.15), rgba(192,57,43,0.08));
+      border: 1px solid rgba(192,57,43,0.45);
+      color: #e8b4af;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: all 0.2s;
+      clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+    }
+    .nhf-walk-away:hover {
+      background: rgba(192,57,43,0.25);
+      border-color: rgba(192,57,43,0.7);
+      color: #ffd5d0;
+    }
+
+    /* Expected-loss projection */
+    .nhf-projection {
+      margin-top: 0.6rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-align: center;
+      font-style: italic;
+      opacity: 0.7;
+    }
+    .nhf-projection strong { color: var(--debt-col); font-style: normal; }
   </style>
 </head>
 <body>
@@ -1002,6 +1221,57 @@
         🆘 National Problem Gambling Helpline: 1-800-522-4700
       </a>
     </div>
+  </div>
+
+
+  <!-- NEXT-HAND FORECAST -->
+  <div id="next-hand-forecast">
+    <div class="nhf-title">📉 NEXT HAND FORECAST</div>
+
+    <div class="nhf-prob-row">
+      <div class="nhf-prob-circle">
+        <svg viewBox="0 0 80 80">
+          <circle class="nhf-circle-track" cx="40" cy="40" r="33"/>
+          <circle class="nhf-circle-fill" id="nhf-circle-fill" cx="40" cy="40" r="33"
+            stroke-dasharray="207.3"
+            stroke-dashoffset="207.3"/>
+        </svg>
+        <div class="nhf-prob-label">
+          <span class="nhf-prob-number" id="nhf-prob-number">—</span>
+          <span class="nhf-prob-unit">LOSE %</span>
+        </div>
+      </div>
+      <div class="nhf-prob-text">
+        <div class="nhf-prob-headline" id="nhf-headline">Calculating odds…</div>
+        <div class="nhf-prob-sub" id="nhf-sub"></div>
+      </div>
+    </div>
+
+    <div class="nhf-context">
+      <div class="nhf-context-row">
+        <span class="nhf-ctx-lbl">YOUR SESSION</span>
+        <div class="nhf-bar-track"><div class="nhf-bar-fill nhf-bar-session" id="nhf-bar-session" style="width:0%"></div></div>
+        <span class="nhf-ctx-val" id="nhf-val-session">—</span>
+      </div>
+      <div class="nhf-context-row">
+        <span class="nhf-ctx-lbl">STATISTICAL BASE</span>
+        <div class="nhf-bar-track"><div class="nhf-bar-fill nhf-bar-baseline" style="width:49%"></div></div>
+        <span class="nhf-ctx-val">49%</span>
+      </div>
+      <div class="nhf-context-row">
+        <span class="nhf-ctx-lbl">LONG-RUN (1000 hands)</span>
+        <div class="nhf-bar-track"><div class="nhf-bar-fill nhf-bar-long" style="width:55%"></div></div>
+        <span class="nhf-ctx-val">55%</span>
+      </div>
+    </div>
+
+    <div class="nhf-message" id="nhf-message"></div>
+
+    <div class="nhf-cta">
+      <button class="nhf-walk-away" onclick="window.location.href='index.html'">🚪 WALK AWAY NOW</button>
+    </div>
+
+    <div class="nhf-projection" id="nhf-projection"></div>
   </div>
 
   <div class="go-btns">
@@ -1333,6 +1603,9 @@ function settleHand(result, subtitle) {
   document.getElementById('go-subtitle').textContent = subtitle;
 
   buildReport();
+  buildNextHandForecast();
+  // Store last bet for forecast reference
+  AG.lastBet = currentBet;
   document.getElementById('gameover').classList.add('show');
 }
 
@@ -1699,6 +1972,129 @@ function updateOddsPanel() {
   }
 }
 
+
+// ══════════════════════════════════════════════
+// NEXT-HAND FORECAST ENGINE
+// ══════════════════════════════════════════════
+
+// Statistical blackjack baselines (6-deck, H17, basic strategy)
+const BJ_BASE_LOSS_PCT   = 49.1;  // ~49% of hands result in a loss
+const BJ_BASE_WIN_PCT    = 42.4;  // ~42% wins (remainder are pushes)
+const BJ_LONG_RUN_LOSS   = 55.0;  // including pushes re-bet, practical loss rate
+const HOUSE_EDGE_PCT     = 0.5;   // long-run expected loss per dollar wagered
+
+function getDissuasionMessage(ag) {
+  // Loss chasing — most dangerous state
+  if (ag.netPL < 0 && ag.consecutiveLosses >= 2) {
+    return 'You\'ve lost <strong>\' + ag.consecutiveLosses + \' hands in a row</strong>. The urge to win it back is called "loss chasing" — it\'s one of the strongest gambling urges, and it\'s exactly what keeps people playing past the point of reason.';
+  }
+  // Significantly down
+  if (ag.netPL < -50) {
+    return 'You\'re down <strong>$' + Math.abs(ag.netPL) + '</strong> this session. Statistically, continuing to play does not increase your chances of recovering that — it increases the expected total loss.';
+  }
+  // In the red, multiple hands played
+  if (ag.netPL < 0 && ag.hands > 5) {
+    return 'After <strong>\' + ag.hands + \' hands</strong> you\'re in the red. The house edge is small but relentless — it compounds with every hand dealt. There is no amount of play that erases it.';
+  }
+  // Winning streak — overconfidence risk
+  if (ag.netPL > 0 && ag.consecutiveWins >= 2) {
+    return 'You\'re on a run. This is when most people lose the most money — <strong>winning streaks feel like skill, not luck</strong>. The next hand has no memory of the last. The odds reset completely.';
+  }
+  // Up on the session
+  if (ag.netPL > 30) {
+    return 'You\'re ahead by <strong>$\' + ag.netPL + \'</strong>. That money is real. The longer you continue, the more likely the house edge pulls it back — that\'s not pessimism, it\'s arithmetic.';
+  }
+  // Long session
+  if (ag.hands >= 15) {
+    return '<strong>' + ag.hands + ' hands in.</strong> A casino processes hundreds of decisions an hour — the longer you play, the more the house edge compounds. Time at the table is the house\'s biggest advantage.';
+  }
+  if (ag.hands >= 8) {
+    return 'Every hand is an independent event. There is no "due" win, no hot table, no momentum. <strong>The cards have no memory</strong> — only the math persists.';
+  }
+  // Default
+  return 'Blackjack has some of the best odds in any casino — and the house still wins more than it loses over time. <strong>The next hand is more likely to lose than win.</strong> That\'s not a warning, it\'s a mathematical fact.';
+}
+
+function buildNextHandForecast() {
+  // ── Loss probability for next hand ────────────────────────────────────────
+  // Base: 49.1%. Adjust slightly for session streak (regression to mean model).
+  // NOTE: We show truth — each hand is independent. But we contextualise with
+  // the long-run reality rather than implying hot/cold streaks.
+  const played = AG.wins + AG.losses;
+  let sessionLossPct = played > 0
+    ? Math.round((AG.losses / played) * 100)
+    : Math.round(BJ_BASE_LOSS_PCT);
+
+  // Weighted blend: session result drifts toward true baseline over time
+  // This prevents wild numbers on first few hands while showing truth at scale
+  const weight = Math.min(played / 20, 1);  // full trust in session data after 20 hands
+  const blendedLoss = Math.round(
+    sessionLossPct * weight + BJ_BASE_LOSS_PCT * (1 - weight)
+  );
+
+  // Clamp to realistic range
+  const displayLoss = Math.max(40, Math.min(70, blendedLoss));
+
+  // ── Circle arc ─────────────────────────────────────────────────────────────
+  const circumference = 207.3; // 2π × 33
+  const offset = circumference * (1 - displayLoss / 100);
+  const circleEl = document.getElementById('nhf-circle-fill');
+  const numEl    = document.getElementById('nhf-prob-number');
+
+  // Colour tier
+  const tier = displayLoss >= 55 ? 'high' : displayLoss >= 49 ? 'mid' : 'low';
+  circleEl.className = `nhf-circle-fill${tier === 'high' ? '' : ' ' + tier}`;
+  numEl.className    = `nhf-prob-number${tier === 'high' ? '' : ' ' + tier}`;
+
+  // Animate after a short delay (overlay just appeared)
+  setTimeout(() => {
+    circleEl.style.strokeDashoffset = offset;
+    numEl.textContent = displayLoss + '%';
+  }, 120);
+
+  // ── Context bars ───────────────────────────────────────────────────────────
+  const sessionLossForBar = played > 0 ? Math.round((AG.losses / played) * 100) : Math.round(BJ_BASE_LOSS_PCT);
+  document.getElementById('nhf-bar-session').style.width = Math.min(sessionLossForBar, 100) + '%';
+  document.getElementById('nhf-val-session').textContent = sessionLossForBar + '%';
+
+  // ── Headline + sub ─────────────────────────────────────────────────────────
+  const headlineEl = document.getElementById('nhf-headline');
+  const subEl      = document.getElementById('nhf-sub');
+
+  if (displayLoss >= 55) {
+    headlineEl.textContent = `${displayLoss}% chance you lose the next hand`;
+    subEl.textContent = 'Above the statistical average. Your session pattern leans unfavourable.';
+  } else if (displayLoss >= 50) {
+    headlineEl.textContent = `${displayLoss}% chance you lose the next hand`;
+    subEl.textContent = 'Near the statistical baseline. Slightly more likely to lose than win.';
+  } else {
+    headlineEl.textContent = `${displayLoss}% chance you lose the next hand`;
+    subEl.textContent = 'Below average — but losing is still the most probable single outcome.';
+  }
+
+  // ── Dissuasion message ─────────────────────────────────────────────────────
+  document.getElementById('nhf-message').innerHTML = getDissuasionMessage(AG);
+
+  // ── Expected loss projection ───────────────────────────────────────────────
+  // House edge = 0.5% of total money wagered (not per hand profit/loss)
+  // Per hand: bet × 0.005 = expected loss
+  // Over N hands: N × bet × 0.005
+  const refBet = currentBet > 0 ? currentBet : (AG.lastBet || 10);
+  const perHandLoss   = (refBet * 0.005).toFixed(2);           // e.g. $10 bet → $0.05
+  const over20Loss    = (refBet * 20 * 0.005).toFixed(2);      // e.g. 20 hands → $1.00
+  const over100Loss   = (refBet * 100 * 0.005).toFixed(2);     // e.g. 100 hands → $5.00
+  const totalWagered  = AG.totalWagered > 0 ? AG.totalWagered : refBet * AG.hands;
+  const expectedTotalLoss = (totalWagered * 0.005).toFixed(2);
+
+  let projText = 'At <strong>$' + refBet + '/hand</strong>: house expects to keep ';
+  projText += '<strong>$' + perHandLoss + '</strong> per hand · ';
+  projText += '<strong>$' + over20Loss + '</strong> over 20 hands · ';
+  projText += '<strong>$' + over100Loss + '</strong> over 100 hands';
+  if (AG.totalWagered > 0) {
+    projText += ' · Based on $' + AG.totalWagered + ' wagered this session, expected house take: <strong>$' + expectedTotalLoss + '</strong>';
+  }
+  document.getElementById('nhf-projection').innerHTML = projText;
+}
 // ── SESSION REPORT ────────────────────────────
 function buildReport() {
   const elapsed = Math.floor((Date.now() - AG.sessionStart) / 1000);

@@ -72,6 +72,16 @@ function handScore(cards) {
 // START / INIT
 // ══════════════════════════════════════════════
 function startGame() {
+  
+  // Check if elements exist before trying to hide them
+  const titleScreen = document.getElementById('title-screen');
+  if (titleScreen) titleScreen.style.display = 'none';
+  
+  const gameScreen = document.getElementById('game-screen');
+  if (gameScreen) gameScreen.style.display = 'flex';
+  
+  // Rest of your existing setup logic...
+
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'flex';
   document.getElementById('game-over-overlay').style.display = 'none';

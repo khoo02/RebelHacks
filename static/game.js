@@ -19,8 +19,16 @@ const ENEMIES_PER_FLOOR = 3;
 const FLOOR_BOSS_INDEX = ENEMIES_PER_FLOOR - 1;
 const BASE_ENEMY = { name: 'HOUSE ENFORCER', sprite: '🂠', difficulty: 1 };
 
-const ABILITY_COSTS = { special: 8, jokers: { 1: 6, 2: 8, 3: 10, 4: 8 } };
-const ABILITY_LABELS = { special: 'Special Attack', 1: "Fool's Luck", 2: 'Death Draw', 3: 'Lightning', 4: 'Iron Skin' };
+const ABILITY_COSTS = { special: 8, jokers: { 1: 6, 2: 8, 3: 10, 4: 8, 5: 9, 6: 9 } };
+const ABILITY_LABELS = {
+  special: 'Special Attack',
+  1: "Fool's Luck",
+  2: 'Death Draw',
+  3: 'Lightning',
+  4: 'Iron Skin',
+  5: 'Peek',
+  6: 'Force Draw',
+};
 const RUN_SAVE_KEY = 'blackjack_brawl_run_v1';
 const SOUND_PREF_KEY = 'blackjack_brawl_sound_muted_v1';
 
@@ -168,8 +176,10 @@ function createInitialState() {
     specialCharges: 0,
     doubleNext: false,
     blocking: false,
-    jokerUsed: { 1:false, 2:false, 3:false, 4:false },
-    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
+    jokerUsed: { 1:false, 2:false, 3:false, 4:false, 5:false, 6:false },
+    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false, 5:false, 6:false } },
+    peekPending: false,
+    forcedMonsterDraws: 0,
     coins: 0,
     round: 1,
     roundsSurvived: 0,
@@ -183,6 +193,8 @@ function createInitialState() {
     endlessMode: false,
     shopPendingNextFloor: null,
     inShop: false,
+    shopJokerPurchasesThisVisit: 0,
+    shopOfferedJoker: null,
     busy: false,
     playerNatural: false,
     monsterNatural: false,
@@ -221,6 +233,10 @@ function saveProgress() {
     endlessMode: !!state.endlessMode,
     shopPendingNextFloor: state.shopPendingNextFloor,
     inShop: state.inShop,
+    shopJokerPurchasesThisVisit: Math.max(0, Number(state.shopJokerPurchasesThisVisit) || 0),
+    shopOfferedJoker: state.shopOfferedJoker ?? null,
+    peekPending: !!state.peekPending,
+    forcedMonsterDraws: Math.max(0, Number(state.forcedMonsterDraws) || 0),
     passives: state.passiveBoosts || [],
   };
   try {
@@ -241,6 +257,8 @@ function sanitizeUnlocked(unlocked) {
       2: !!unlocked?.jokers?.[2],
       3: !!unlocked?.jokers?.[3],
       4: !!unlocked?.jokers?.[4],
+      5: !!unlocked?.jokers?.[5],
+      6: !!unlocked?.jokers?.[6],
     },
   };
 }
@@ -281,6 +299,10 @@ function tryResumeSavedRun() {
   state.endlessMode = !!saved.endlessMode;
   state.shopPendingNextFloor = saved.shopPendingNextFloor || null;
   state.inShop = !!saved.inShop;
+  state.shopJokerPurchasesThisVisit = Math.max(0, Number(saved.shopJokerPurchasesThisVisit) || 0);
+  state.shopOfferedJoker = saved.shopOfferedJoker ?? null;
+  state.peekPending = !!saved.peekPending;
+  state.forcedMonsterDraws = Math.max(0, Number(saved.forcedMonsterDraws) || 0);
   state.passiveBoosts = Array.isArray(saved.passives) ? saved.passives : [];
 
   setupEncounter(state.depth, state.enemiesDefeatedOnFloor);
@@ -293,7 +315,7 @@ function tryResumeSavedRun() {
   showTurnBanner('RUN RESUMED', '#2ecc71');
 
   if (state.inShop) {
-    openShop();
+    openShop(false);
   } else {
     setButtons(false);
     dealRound();
@@ -327,6 +349,11 @@ function quitToTitle() {
   window.location.href = 'index.html';
 }
 
+function returnToMainMenu() {
+  clearSavedRun();
+  window.location.href = 'index.html';
+}
+
 function startNewRun() {
   clearSavedRun();
   startGame(true);
@@ -345,6 +372,7 @@ window.toggleSound = toggleSound;
 window.startNewRun = startNewRun;
 window.continueRun = continueRun;
 window.quitToTitle = quitToTitle;
+window.returnToMainMenu = returnToMainMenu;
 window.initTitleScreen = initTitleScreen;
 window.startEndlessMode = startEndlessMode;
 window.finishRunNow = finishRunNow;
@@ -494,7 +522,9 @@ function setupEncounter(depth, enemyIndex) {
   state.round = 1;
   state.doubleNext = false;
   state.blocking = false;
-  state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
+  state.jokerUsed = { 1:false, 2:false, 3:false, 4:false, 5:false, 6:false };
+  state.peekPending = false;
+  state.forcedMonsterDraws = 0;
   state.playerCards = [];
   state.monsterCards = [];
   state.playerNatural = false;
@@ -690,11 +720,40 @@ function flipMonsterCards() {
   });
 }
 
+function peekUpcomingCards(count = 2) {
+  const upcoming = [];
+  for (let i = 1; i <= count; i++) {
+    const card = state.deck[state.deck.length - i];
+    if (!card) break;
+    upcoming.push(card);
+  }
+  return upcoming;
+}
+
+function formatCard(card) {
+  return `${card.value}${card.suit}`;
+}
+
 // ══════════════════════════════════════════════
 // PLAYER ACTIONS
 // ══════════════════════════════════════════════
 async function playerHit() {
   if (state.busy || state.phase !== 'player') return;
+
+  if (state.peekPending) {
+    const upcoming = peekUpcomingCards(2);
+    const preview = upcoming.length > 0
+      ? upcoming.map(formatCard).join(', ')
+      : 'unknown (deck will reshuffle)';
+    const shouldDraw = window.confirm(`Peek: next cards are ${preview}. Draw now?`);
+    state.peekPending = false;
+    if (!shouldDraw) {
+      setLog('Peek used: you skipped drawing. Choose another action.');
+      scheduleSave();
+      return;
+    }
+  }
+
   state.busy = true;
   setButtons(false);
   playSfx('hit');
@@ -754,6 +813,16 @@ async function playerStand(force = false) {
       continue;
     }
     break;
+  }
+
+  if (state.forcedMonsterDraws > 0) {
+    const forcedDraws = state.forcedMonsterDraws;
+    state.forcedMonsterDraws = 0;
+    setLog(`${ABILITY_LABELS[6]} triggers: monster is forced to draw ${forcedDraws} extra cards.`);
+    for (let i = 0; i < forcedDraws; i++) {
+      await drawCard('monster', false, 0);
+      await sleep(350);
+    }
   }
 
   const pScore = handScore(state.playerCards);
@@ -823,6 +892,7 @@ async function resolveRound(pScore, mScore) {
   let msg = '';
   let playerDmg = 0, monsterDmg = 0;
   let outcome = 'draw';
+  let useFlatTieDamage = false;
 
   if (mBust && !pBust) {
     monsterDmg = 20 + pScore;
@@ -846,17 +916,60 @@ async function resolveRound(pScore, mScore) {
     msg = `TIE! Both at ${pScore}. No damage — but the monster plots...`;
   }
 
+  if (!mBust && !pBust && pScore === mScore) {
+    const tieScore = pScore;
+    const goDouble = window.confirm(`Push at ${tieScore}. OK = DOUBLE, Cancel = NOTHING.`);
+    if (goDouble) {
+      setLog(`PUSH: Double or Nothing! Both sides draw 1 card...`);
+      await sleep(350);
+      await drawCard('player', false, 0);
+      await drawCard('monster', false, 0);
+      await sleep(300);
+
+      const newP = handScore(state.playerCards);
+      const newM = handScore(state.monsterCards);
+      document.getElementById('monster-score').textContent = newM > 21 ? `${newM}💀` : newM;
+
+      const pDist = Math.abs(21 - newP);
+      const mDist = Math.abs(21 - newM);
+      const doubled = tieScore * 2;
+      useFlatTieDamage = true;
+
+      if (pDist < mDist) {
+        monsterDmg = doubled;
+        outcome = 'win';
+        msg = `Double wins! You: ${newP}, Monster: ${newM}. Monster takes ${doubled} damage.`;
+      } else if (mDist < pDist) {
+        playerDmg = doubled;
+        outcome = 'loss';
+        msg = `Double lost! You: ${newP}, Monster: ${newM}. You take ${doubled} damage.`;
+      } else {
+        playerDmg = tieScore;
+        monsterDmg = tieScore;
+        msg = `Double re-tied (${newP} vs ${newM}). Both take ${tieScore} damage.`;
+      }
+    } else {
+      playerDmg = tieScore;
+      monsterDmg = tieScore;
+      useFlatTieDamage = true;
+      msg = `Nothing chosen: both tied at ${tieScore}, so both take ${tieScore} damage.`;
+    }
+  }
+
   setLog(msg);
   await sleep(600);
 
   if (monsterDmg > 0) {
-    if (pNatural) {
+    if (!useFlatTieDamage && pNatural) {
       monsterDmg = monsterDmg * 2;
       msg += " (Natural blackjack! Damage doubled.)";
     }
-    let finalDmg = state.doubleNext ? monsterDmg * 2 : monsterDmg;
-    state.doubleNext = false;
-    finalDmg = applyPlayerDamageBoost(finalDmg);
+    let finalDmg = monsterDmg;
+    if (!useFlatTieDamage) {
+      finalDmg = state.doubleNext ? monsterDmg * 2 : monsterDmg;
+      state.doubleNext = false;
+      finalDmg = applyPlayerDamageBoost(finalDmg);
+    }
     showDamageNumber(finalDmg, '#d4a017', 'monster');
     flashScreen('#d4a017');
     dealDamage('monster', finalDmg);
@@ -868,7 +981,7 @@ async function resolveRound(pScore, mScore) {
   }
 
   if (playerDmg > 0) {
-    if (state.blocking) {
+    if (!useFlatTieDamage && state.blocking) {
       setLog("🛡 Iron Skin absorbed the blow!");
       playSfx('block');
       state.blocking = false;
@@ -958,6 +1071,17 @@ async function useJoker(id) {
   } else if (id === 4) {
     state.blocking = true;
     setLog("🛡 Iron Skin activated! The next monster attack is blocked.");
+  } else if (id === 5) {
+    const upcoming = peekUpcomingCards(2);
+    if (upcoming.length === 0) {
+      setLog('Peek: deck is empty; next cards are unknown until reshuffle.');
+    } else {
+      setLog(`Peek active: next cards are ${upcoming.map(formatCard).join(', ')}. Press HIT to choose whether to draw.`);
+    }
+    state.peekPending = true;
+  } else if (id === 6) {
+    state.forcedMonsterDraws += 3;
+    setLog(`Force Draw stacked: monster will draw ${state.forcedMonsterDraws} extra card(s) after your turn.`);
   }
   scheduleSave();
 }
@@ -988,10 +1112,28 @@ function updateShopUI() {
   if (coinsEl) coinsEl.textContent = `${state.coins}`;
   const canHeal = state.coins >= 8 && state.playerHP < 100;
   const canCharge = state.coins >= 6;
-  const canRefresh = state.coins >= 7;
-  document.getElementById('shop-heal-btn').disabled = !canHeal;
-  document.getElementById('shop-charge-btn').disabled = !canCharge;
-  document.getElementById('shop-refresh-btn').disabled = !canRefresh;
+  const jokerPrice = 10 + (state.shopJokerPurchasesThisVisit || 0);
+  const lockedJokers = [];
+  for (let i=1; i<=6; i++) {
+    if (!state.unlocked.jokers[i]) lockedJokers.push(i);
+  }
+  if (!lockedJokers.includes(state.shopOfferedJoker)) {
+    state.shopOfferedJoker = lockedJokers.length
+      ? lockedJokers[Math.floor(Math.random() * lockedJokers.length)]
+      : null;
+  }
+  const canBuyJoker = lockedJokers.length > 0 && state.coins >= jokerPrice;
+  const healBtn = document.getElementById('shop-heal-btn');
+  const chargeBtn = document.getElementById('shop-charge-btn');
+  const jokerBtn = document.getElementById('shop-joker-btn');
+  if (healBtn) healBtn.disabled = !canHeal;
+  if (chargeBtn) chargeBtn.disabled = !canCharge;
+  if (jokerBtn) {
+    jokerBtn.disabled = !canBuyJoker;
+    jokerBtn.textContent = lockedJokers.length > 0 && state.shopOfferedJoker
+      ? `${ABILITY_LABELS[state.shopOfferedJoker]} (${jokerPrice})`
+      : 'ALL JOKERS BOUGHT';
+  }
 }
 
 function openEndlessChoice() {
@@ -1040,10 +1182,14 @@ function startEndlessFromGameOver() {
   openShop();
 }
 
-function openShop() {
+function openShop(resetVisitPricing = true) {
   state.inShop = true;
   state.busy = true;
   state.phase = 'shop';
+  if (resetVisitPricing) {
+    state.shopJokerPurchasesThisVisit = 0;
+    state.shopOfferedJoker = null;
+  }
   playSfx('shop');
   setButtons(false);
   updateSpecialBtn();
@@ -1066,11 +1212,27 @@ function shopBuy(kind) {
     state.coins -= 6;
     state.specialCharges++;
     setLog('Shop: Bought +1 Special charge.');
-  } else if (kind === 'refresh') {
-    if (state.coins < 7) return;
-    state.coins -= 7;
-    state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
-    setLog('Shop: Jokers refreshed for the next floor.');
+  } else if (kind === 'joker') {
+    const locked = [];
+    for (let i=1; i<=6; i++) if (!state.unlocked.jokers[i]) locked.push(i);
+    if (locked.length === 0) {
+      setLog('Shop: All joker cards are already unlocked.');
+      updateShopUI();
+      return;
+    }
+    const price = 10 + (state.shopJokerPurchasesThisVisit || 0);
+    if (state.coins < price) return;
+    const pick = locked.includes(state.shopOfferedJoker)
+      ? state.shopOfferedJoker
+      : locked[Math.floor(Math.random() * locked.length)];
+    state.coins -= price;
+    state.shopJokerPurchasesThisVisit = (state.shopJokerPurchasesThisVisit || 0) + 1;
+    unlockAbility(pick, false);
+    const remaining = locked.filter(k => k !== pick);
+    state.shopOfferedJoker = remaining.length
+      ? remaining[Math.floor(Math.random() * remaining.length)]
+      : null;
+    setLog(`Shop: Bought joker -> ${ABILITY_LABELS[pick]} (${price} coins). Next offer rotated.`);
   }
   playSfx('shop');
   updateSpecialBtn();
@@ -1107,7 +1269,7 @@ function tryRandomUnlock() {
   if (Math.random() >= 0.35) return null;
   const locked = [];
   if (!state.unlocked.special) locked.push('special');
-  for (let i=1; i<=4; i++) if (!state.unlocked.jokers[i]) locked.push(i);
+  for (let i=1; i<=6; i++) if (!state.unlocked.jokers[i]) locked.push(i);
   if (locked.length === 0) return null;
 
   const pick = locked[Math.floor(Math.random() * locked.length)];
@@ -1119,7 +1281,7 @@ function buyAbilitiesWithCoins() {
   const bought = [];
   const locked = [];
   if (!state.unlocked.special) locked.push({ key: 'special', cost: ABILITY_COSTS.special });
-  for (let i=1; i<=4; i++) {
+  for (let i=1; i<=6; i++) {
     if (!state.unlocked.jokers[i]) locked.push({ key: i, cost: ABILITY_COSTS.jokers[i] });
   }
 
@@ -1151,7 +1313,7 @@ function unlockAbility(key, addSpecialCharge) {
 }
 
 function updateAbilityUI() {
-  for (let i=1; i<=4; i++) {
+  for (let i=1; i<=6; i++) {
     const el = document.getElementById(`joker-${i}`);
     if (!el) continue;
     const unlocked = !!state.unlocked.jokers[i];

@@ -66,6 +66,14 @@
       🛡<span>IRON SKIN</span>
       <div class="joker-tooltip">Block next monster attack</div>
     </div>
+    <div class="joker-card" id="joker-5" onclick="useJoker(5)">
+      👁️<span>PEEK</span>
+      <div class="joker-tooltip">Preview your next 2 draws, then choose whether to Hit</div>
+    </div>
+    <div class="joker-card" id="joker-6" onclick="useJoker(6)">
+      🧲<span>FORCE DRAW</span>
+      <div class="joker-tooltip">After your turn, force the monster to draw 3 extra cards (stacks)</div>
+    </div>
   </div>
 
   <!-- PLAYER ZONE -->
@@ -106,7 +114,7 @@
   <div id="game-over-msg" style="font-size:1.2rem; font-style:italic; opacity:0.8;"></div>
   <button class="big-btn" id="btn-endless-from-end" onclick="startEndlessFromGameOver()" style="margin-top:1rem; display:none;">ENDLESS MODE</button>
   <button class="big-btn" onclick="startNewRun()" style="margin-top:1rem;">⚔ PLAY AGAIN</button>
-  <button class="big-btn" onclick="window.location.href='index.html'" style="margin-top:0.5rem; background:rgba(255,255,255,0.06); border:1px solid rgba(212,160,23,0.3); font-size:0.9rem;">🏠 MAIN MENU</button>
+  <button class="big-btn" onclick="returnToMainMenu()" style="margin-top:0.5rem; background:rgba(255,255,255,0.06); border:1px solid rgba(212,160,23,0.3); font-size:0.9rem;">🏠 MAIN MENU</button>
 </div>
 
 <!-- ENDLESS MODE PROMPT -->
@@ -144,6 +152,7 @@
       <button class="action-btn shop-btn" id="shop-charge-btn" onclick="shopBuy('charge')">SPECIAL +1 (6)</button>
       <button class="action-btn shop-btn" id="shop-refresh-btn" onclick="shopBuy('refresh')">REFRESH JOKERS (7)</button>
       <button class="action-btn shop-btn" id="shop-dmgboost-btn" onclick="shopBuy('damage-boost')">DAMAGE BOOST +20% (50)</button>
+      <button class="action-btn shop-btn" id="shop-joker-btn" onclick="shopBuy('joker')">RANDOM JOKER (10)</button>
     </div>
     <button class="big-btn" onclick="leaveShop()" style="margin-top:1rem;">CONTINUE</button>
   </div>

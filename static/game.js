@@ -21,8 +21,329 @@ const BASE_ENEMY = { name: 'HOUSE ENFORCER', sprite: '🂠', difficulty: 1 };
 
 const ABILITY_COSTS = { special: 8, jokers: { 1: 6, 2: 8, 3: 10, 4: 8 } };
 const ABILITY_LABELS = { special: 'Special Attack', 1: "Fool's Luck", 2: 'Death Draw', 3: 'Lightning', 4: 'Iron Skin' };
+const RUN_SAVE_KEY = 'blackjack_brawl_run_v1';
+const SOUND_PREF_KEY = 'blackjack_brawl_sound_muted_v1';
 
 let state = {};
+let saveTimer = null;
+
+const audio = {
+  ctx: null,
+  master: null,
+  muted: readSoundMutedPref(),
+};
+
+function readSoundMutedPref() {
+  try {
+    return localStorage.getItem(SOUND_PREF_KEY) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function writeSoundMutedPref() {
+  try {
+    localStorage.setItem(SOUND_PREF_KEY, audio.muted ? '1' : '0');
+  } catch (_) {}
+}
+
+function initAudio() {
+  if (audio.ctx) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  audio.ctx = new Ctx();
+  audio.master = audio.ctx.createGain();
+  audio.master.gain.value = 0.3;
+  audio.master.connect(audio.ctx.destination);
+}
+
+function installAudioUnlock() {
+  const unlock = () => {
+    initAudio();
+    if (audio.ctx && audio.ctx.state === 'suspended') {
+      audio.ctx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+  window.addEventListener('touchstart', unlock, { passive: true });
+  window.addEventListener('mousedown', unlock);
+}
+
+function playTone(freq, duration = 0.09, type = 'sine', volume = 0.14, sweepTo = null) {
+  if (audio.muted) return;
+  initAudio();
+  if (!audio.ctx || !audio.master) return;
+  if (audio.ctx.state === 'suspended') {
+    audio.ctx.resume().catch(() => {});
+  }
+
+  const now = audio.ctx.currentTime;
+  const osc = audio.ctx.createOscillator();
+  const gain = audio.ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (typeof sweepTo === 'number') {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, sweepTo), now + duration);
+  }
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  osc.connect(gain);
+  gain.connect(audio.master);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+}
+
+function playSfx(name) {
+  switch (name) {
+    case 'card':
+      playTone(320, 0.05, 'triangle', 0.04, 260);
+      break;
+    case 'hit':
+      playTone(510, 0.06, 'square', 0.06, 420);
+      break;
+    case 'stand':
+      playTone(260, 0.07, 'triangle', 0.05, 220);
+      break;
+    case 'special':
+      playTone(700, 0.08, 'sawtooth', 0.07, 980);
+      setTimeout(() => playTone(980, 0.09, 'triangle', 0.06, 680), 55);
+      break;
+    case 'damage':
+      playTone(180, 0.1, 'square', 0.08, 110);
+      break;
+    case 'block':
+      playTone(240, 0.06, 'triangle', 0.06, 330);
+      break;
+    case 'bust':
+      playTone(180, 0.12, 'sawtooth', 0.08, 90);
+      break;
+    case 'win':
+      playTone(520, 0.08, 'triangle', 0.07, 760);
+      setTimeout(() => playTone(760, 0.08, 'triangle', 0.06, 980), 80);
+      break;
+    case 'lose':
+      playTone(240, 0.1, 'sawtooth', 0.07, 130);
+      break;
+    case 'shop':
+      playTone(460, 0.06, 'triangle', 0.05, 560);
+      break;
+  }
+}
+
+function updateSoundButton() {
+  const label = audio.muted ? 'SOUND OFF' : 'SOUND ON';
+  ['btn-sound', 'btn-sound-title'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.textContent = label;
+  });
+}
+
+function toggleSound() {
+  audio.muted = !audio.muted;
+  writeSoundMutedPref();
+  updateSoundButton();
+  if (!audio.muted) {
+    initAudio();
+    if (audio.ctx && audio.ctx.state === 'suspended') {
+      audio.ctx.resume().catch(() => {});
+    }
+    playTone(520, 0.06, 'triangle', 0.05, 620);
+  }
+}
+
+function createInitialState() {
+  return {
+    deck: freshDeck(),
+    playerCards: [],
+    monsterCards: [],
+    playerHP: 100,
+    monsterHP: 1,
+    monsterMaxHP: 1,
+    monster: null,
+    phase: 'player', // 'player' | 'monster' | 'resolution'
+    specialCharges: 0,
+    doubleNext: false,
+    blocking: false,
+    jokerUsed: { 1:false, 2:false, 3:false, 4:false },
+    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
+    coins: 0,
+    round: 1,
+    roundsSurvived: 0,
+    depth: 1,
+    clearedEncounters: 0,
+    enemiesDefeatedOnFloor: 0,
+    remainingBosses: MONSTERS.map(m => ({ ...m })),
+    floorBoss: null,
+    defeatedBosses: {},
+    defeatedBossCount: 0,
+    shopPendingNextFloor: null,
+    inShop: false,
+    busy: false,
+    playerNatural: false,
+    monsterNatural: false,
+  };
+}
+
+function clearSavedRun() {
+  try {
+    localStorage.removeItem(RUN_SAVE_KEY);
+  } catch (_) {}
+}
+
+function hasSavedRun() {
+  try {
+    return !!localStorage.getItem(RUN_SAVE_KEY);
+  } catch (_) {
+    return false;
+  }
+}
+
+function saveProgress() {
+  if (!state || !state.monster) return;
+  const snapshot = {
+    playerHP: state.playerHP,
+    specialCharges: state.specialCharges,
+    unlocked: state.unlocked,
+    coins: state.coins,
+    roundsSurvived: state.roundsSurvived,
+    depth: state.depth,
+    clearedEncounters: state.clearedEncounters,
+    enemiesDefeatedOnFloor: state.enemiesDefeatedOnFloor,
+    remainingBosses: state.remainingBosses,
+    floorBoss: state.floorBoss,
+    defeatedBosses: state.defeatedBosses,
+    defeatedBossCount: state.defeatedBossCount,
+    shopPendingNextFloor: state.shopPendingNextFloor,
+    inShop: state.inShop,
+    passives: state.passiveBoosts || [],
+  };
+  try {
+    localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(snapshot));
+  } catch (_) {}
+}
+
+function scheduleSave(delay = 150) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveProgress, delay);
+}
+
+function sanitizeUnlocked(unlocked) {
+  return {
+    special: !!unlocked?.special,
+    jokers: {
+      1: !!unlocked?.jokers?.[1],
+      2: !!unlocked?.jokers?.[2],
+      3: !!unlocked?.jokers?.[3],
+      4: !!unlocked?.jokers?.[4],
+    },
+  };
+}
+
+function tryResumeSavedRun() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(RUN_SAVE_KEY);
+  } catch (_) {
+    return false;
+  }
+  if (!raw) return false;
+
+  let saved = null;
+  try {
+    saved = JSON.parse(raw);
+  } catch (_) {
+    clearSavedRun();
+    return false;
+  }
+  if (!saved || typeof saved !== 'object') return false;
+
+  state = createInitialState();
+  state.playerHP = Math.max(1, Math.min(100, Number(saved.playerHP) || 100));
+  state.specialCharges = Math.max(0, Number(saved.specialCharges) || 0);
+  state.unlocked = sanitizeUnlocked(saved.unlocked);
+  state.coins = Math.max(0, Number(saved.coins) || 0);
+  state.roundsSurvived = Math.max(0, Number(saved.roundsSurvived) || 0);
+  state.depth = Math.max(1, Number(saved.depth) || 1);
+  state.clearedEncounters = Math.max(0, Number(saved.clearedEncounters) || 0);
+  state.enemiesDefeatedOnFloor = Math.max(0, Math.min(ENEMIES_PER_FLOOR - 1, Number(saved.enemiesDefeatedOnFloor) || 0));
+  state.remainingBosses = Array.isArray(saved.remainingBosses) && saved.remainingBosses.length > 0
+    ? saved.remainingBosses
+    : MONSTERS.map(m => ({ ...m }));
+  state.floorBoss = saved.floorBoss || null;
+  state.defeatedBosses = saved.defeatedBosses || {};
+  state.defeatedBossCount = Math.max(0, Number(saved.defeatedBossCount) || 0);
+  state.shopPendingNextFloor = saved.shopPendingNextFloor || null;
+  state.inShop = !!saved.inShop;
+  state.passiveBoosts = Array.isArray(saved.passives) ? saved.passives : [];
+
+  setupEncounter(state.depth, state.enemiesDefeatedOnFloor);
+  state.playerHP = Math.max(1, Math.min(100, Number(saved.playerHP) || state.playerHP));
+  updateHP();
+  updateAbilityUI();
+  updateSpecialBtn();
+
+  setLog(`Run resumed: Floor ${state.depth}, encounter ${state.enemiesDefeatedOnFloor + 1}.`);
+  showTurnBanner('RUN RESUMED', '#2ecc71');
+
+  if (state.inShop) {
+    openShop();
+  } else {
+    setButtons(false);
+    dealRound();
+  }
+  scheduleSave();
+  return true;
+}
+
+function updateContinueButton() {
+  const btn = document.getElementById('btn-continue-run');
+  if (!btn) return;
+  const canContinue = hasSavedRun();
+  btn.style.display = canContinue ? 'inline-block' : 'none';
+  btn.disabled = !canContinue;
+  btn.textContent = 'CONTINUE RUN';
+}
+
+function showTitleScreen() {
+  document.getElementById('title-screen').style.display = 'flex';
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('game-over-overlay').style.display = 'none';
+  document.getElementById('shop-overlay').style.display = 'none';
+  updateContinueButton();
+}
+
+function quitToTitle() {
+  saveProgress();
+  state.busy = true;
+  state.phase = 'title';
+  setButtons(false);
+  window.location.href = 'index.html';
+}
+
+function startNewRun() {
+  clearSavedRun();
+  startGame(true);
+}
+
+function continueRun() {
+  startGame(false);
+}
+
+function initTitleScreen() {
+  updateSoundButton();
+  showTitleScreen();
+}
+
+window.toggleSound = toggleSound;
+window.startNewRun = startNewRun;
+window.continueRun = continueRun;
+window.quitToTitle = quitToTitle;
+window.initTitleScreen = initTitleScreen;
+installAudioUnlock();
 
 function isSoft17(cards) {
   // soft 17: total 17 where an Ace counts as 11
@@ -151,6 +472,7 @@ async function handleMonsterDefeated() {
   state.busy = true;
   state.phase = 'resolution';
   setButtons(false);
+  playSfx('win');
   state.clearedEncounters++;
   const defeatedBossName = state.monster && state.monster.isBoss ? state.monster.bossName : null;
   if (defeatedBossName && !state.defeatedBosses[defeatedBossName]) {
@@ -173,6 +495,7 @@ async function handleMonsterDefeated() {
     setLog(`Enemy defeated. Floor ${state.depth}: ${state.enemiesDefeatedOnFloor}/${ENEMIES_PER_FLOOR} down. Next: ${nextLabel}.`);
     await sleep(900);
     setupEncounter(state.depth, nextEncounterIndex);
+    scheduleSave();
     if (isBossNext && state.monster?.isBoss) {
       showTurnBanner(`BOSS: ${state.monster.bossName}`, '#e74c3c');
     } else {
@@ -185,6 +508,7 @@ async function handleMonsterDefeated() {
 
   state.floorBoss = null;
   state.shopPendingNextFloor = state.depth + 1;
+  scheduleSave();
   setLog(`Floor ${state.depth} cleared. Visit the shop before Floor ${state.depth + 1}.`);
   await sleep(900);
   openShop();
@@ -193,46 +517,20 @@ async function handleMonsterDefeated() {
 // ══════════════════════════════════════════════
 // START / INIT
 // ══════════════════════════════════════════════
-function startGame() {
+function startGame(forceNew = false) {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'flex';
   document.getElementById('game-over-overlay').style.display = 'none';
   document.getElementById('shop-overlay').style.display = 'none';
+  updateSoundButton();
+  if (!forceNew && tryResumeSavedRun()) return;
 
-  state = {
-    deck: freshDeck(),
-    playerCards: [],
-    monsterCards: [],
-    playerHP: 100,
-    monsterHP: 1,
-    monsterMaxHP: 1,
-    monster: null,
-    phase: 'player', // 'player' | 'monster' | 'resolution'
-    specialCharges: 0,
-    doubleNext: false,
-    blocking: false,
-    jokerUsed: { 1:false, 2:false, 3:false, 4:false },
-    unlocked: { special: false, jokers: { 1:false, 2:false, 3:false, 4:false } },
-    coins: 0,
-    round: 1,
-    roundsSurvived: 0,
-    depth: 1,
-    clearedEncounters: 0,
-    enemiesDefeatedOnFloor: 0,
-    remainingBosses: MONSTERS.map(m => ({ ...m })),
-    floorBoss: null,
-    defeatedBosses: {},
-    defeatedBossCount: 0,
-    shopPendingNextFloor: null,
-    inShop: false,
-    busy: false,
-    playerNatural: false,
-    monsterNatural: false,
-  };
+  state = createInitialState();
 
   setupEncounter(1, 0);
   setLog(`Run started. Floor 1 enemies have 10 HP. Bosses appear at the end of each floor with double HP.`);
   setButtons(false);
+  scheduleSave();
 
   // Deal opening hands
   dealRound();
@@ -275,6 +573,7 @@ async function dealRound() {
   state.busy = false;
   setButtons(true);
   showTurnBanner("YOUR TURN", "#3498db");
+  scheduleSave();
 }
 
 // ══════════════════════════════════════════════
@@ -288,6 +587,7 @@ function drawCard(target, faceDown, delay=0) {
       if (target === 'player') state.playerCards.push(card);
       else                     state.monsterCards.push(card);
       renderCard(card, target, faceDown);
+      playSfx('card');
       resolve();
     }, delay);
   });
@@ -346,13 +646,16 @@ async function playerHit() {
   if (state.busy || state.phase !== 'player') return;
   state.busy = true;
   setButtons(false);
+  playSfx('hit');
 
   await drawCard('player', false, 0);
   updateScores();
+  scheduleSave();
 
   const score = handScore(state.playerCards);
   if (score > 21) {
     setLog(`💥 BUST! Your score of ${score} exceeds 21! Monster strikes!`);
+    playSfx('bust');
     await sleep(800);
     await monsterAttack(true); // bust penalty
     return;
@@ -375,6 +678,7 @@ async function playerStand(force = false) {
   state.busy = true;
   setButtons(false);
   state.phase = 'resolution';
+  playSfx('stand');
 
   // Flip monster cards
   setLog("You stand! Revealing the monster's hand...");
@@ -441,6 +745,7 @@ async function playerSpecial() {
   updateSpecialBtn();
   state.busy = true;
   setButtons(false);
+  playSfx('special');
 
   const baseDmg = Math.floor(Math.random() * 15) + 10;
   const dmg = applyPlayerDamageBoost(baseDmg);
@@ -454,6 +759,7 @@ async function playerSpecial() {
 
   state.busy = false;
   setButtons(true);
+  scheduleSave();
 }
 
 // ══════════════════════════════════════════════
@@ -503,6 +809,7 @@ async function resolveRound(pScore, mScore) {
     showDamageNumber(finalDmg, '#d4a017', 'monster');
     flashScreen('#d4a017');
     dealDamage('monster', finalDmg);
+    playSfx('damage');
     document.getElementById('monster-zone').classList.add('shake');
     setTimeout(() => document.getElementById('monster-zone').classList.remove('shake'), 400);
     await sleep(600);
@@ -512,11 +819,13 @@ async function resolveRound(pScore, mScore) {
   if (playerDmg > 0) {
     if (state.blocking) {
       setLog("🛡 Iron Skin absorbed the blow!");
+      playSfx('block');
       state.blocking = false;
     } else {
       showDamageNumber(playerDmg, '#e74c3c', 'player');
       flashScreen('#c0392b');
       dealDamage('player', playerDmg);
+      playSfx('damage');
       document.getElementById('player-zone').classList.add('shake');
       setTimeout(() => document.getElementById('player-zone').classList.remove('shake'), 400);
     }
@@ -529,6 +838,7 @@ async function resolveRound(pScore, mScore) {
   // Next round
   state.round++;
   state.roundsSurvived++;
+  scheduleSave();
   await sleep(800);
   showTurnBanner("NEW ROUND", "#d4a017");
   await sleep(1200);
@@ -539,11 +849,13 @@ async function monsterAttack(fromBust=false) {
   const dmg = fromBust ? 10 : Math.floor(Math.random() * 15) + 5;
   if (state.blocking) {
     setLog("🛡 Iron Skin absorbed the monster's counterattack!");
+    playSfx('block');
     state.blocking = false;
   } else {
     showDamageNumber(dmg, '#e74c3c', 'player');
     flashScreen('#c0392b');
     dealDamage('player', dmg);
+    playSfx('damage');
     document.getElementById('player-zone').classList.add('shake');
     setTimeout(() => document.getElementById('player-zone').classList.remove('shake'), 400);
   }
@@ -556,6 +868,7 @@ async function monsterAttack(fromBust=false) {
   state.round++;
   state.roundsSurvived++;
   state.busy = false;
+  scheduleSave();
   await sleep(600);
   dealRound();
 }
@@ -571,6 +884,7 @@ async function useJoker(id) {
   if (state.jokerUsed[id] || state.phase !== 'player' || state.busy) return;
   state.jokerUsed[id] = true;
   updateAbilityUI();
+  playSfx('special');
 
   if (id === 1) {
     // Remove highest value card
@@ -594,6 +908,7 @@ async function useJoker(id) {
     state.blocking = true;
     setLog("🛡 Iron Skin activated! The next monster attack is blocked.");
   }
+  scheduleSave();
 }
 
 function grantBattleRewards(outcome) {
@@ -614,6 +929,7 @@ function grantBattleRewards(outcome) {
   updateAbilityUI();
   updateSpecialBtn();
   setLog(`Battle rewards: ${rewardNotes.join(' | ')}.`);
+  scheduleSave();
 }
 
 function updateShopUI() {
@@ -631,11 +947,13 @@ function openShop() {
   state.inShop = true;
   state.busy = true;
   state.phase = 'shop';
+  playSfx('shop');
   setButtons(false);
   updateSpecialBtn();
   updateAbilityUI();
   updateShopUI();
   document.getElementById('shop-overlay').style.display = 'flex';
+  scheduleSave();
 }
 
 function shopBuy(kind) {
@@ -657,9 +975,11 @@ function shopBuy(kind) {
     state.jokerUsed = { 1:false, 2:false, 3:false, 4:false };
     setLog('Shop: Jokers refreshed for the next floor.');
   }
+  playSfx('shop');
   updateSpecialBtn();
   updateAbilityUI();
   updateShopUI();
+  scheduleSave();
 }
 
 async function leaveShop() {
@@ -681,6 +1001,7 @@ async function leaveShop() {
   document.getElementById('shop-overlay').style.display = 'none';
   showTurnBanner(`FLOOR ${state.depth}`, '#d4a017');
   setupEncounter(state.depth, 0);
+  scheduleSave();
   await sleep(500);
   dealRound();
 }
@@ -778,11 +1099,14 @@ function endGame(playerWon) {
     title.textContent = '✨ RUN CLEARED ✨';
     title.className = 'victory';
     msg.textContent = `You defeated all ${MONSTERS.length} bosses and escaped with ${state.playerHP} HP.`;
+    playSfx('win');
   } else {
     title.textContent = '💀 DEFEATED 💀';
     title.className = 'defeat';
     msg.textContent = `${state.monster.name} ended your run on Floor ${state.depth}.`;
+    playSfx('lose');
   }
 
+  clearSavedRun();
   overlay.style.display = 'flex';
 }

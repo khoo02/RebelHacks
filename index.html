@@ -13,8 +13,26 @@
   <div style="font-size:5rem; filter: drop-shadow(0 0 40px rgba(212,160,23,0.6))">🂡</div>
   <h1>BlackJack<br>BRAWL</h1>
   <p>A Vegas dungeon where cards are your weapons.<br>Beat 21 or face the darkness.</p>
-  <button class="big-btn" onclick="startGame()">⚔ ENTER THE DUNGEON</button>
-  <p style="font-size:0.85rem; opacity:0.4; margin-top:1rem">
+  <div class="mode-select-container">
+    <div class="mode-card" id="mode-fun" onclick="startGame()">
+      <div class="mode-icon">⚔️</div>
+      <div class="mode-title">FUN MODE</div>
+      <div class="mode-desc">Monsters, Jokers &amp; special abilities. Cards as weapons in a dungeon brawl.</div>
+      <div class="mode-tag">FANTASY RPG</div>
+    </div>
+    <div class="mode-divider">
+      <div class="mode-divider-line"></div>
+      <span>VS</span>
+      <div class="mode-divider-line"></div>
+    </div>
+    <div class="mode-card mode-card-realistic" id="mode-realistic" onclick="window.location.href='realistic.html'">
+      <div class="mode-icon">🃏</div>
+      <div class="mode-title">REALISTIC MODE</div>
+      <div class="mode-desc">Standard blackjack rules. No power-ups. Just you, the dealer, and the cards.</div>
+      <div class="mode-tag mode-tag-blue">CASINO RULES</div>
+    </div>
+  </div>
+  <p style="font-size:0.85rem; opacity:0.4; margin-top:0.5rem">
     Hit to draw • Stand to end your turn • Special for bonus attacks
   </p>
 </div>

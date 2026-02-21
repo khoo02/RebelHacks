@@ -1,11 +1,11 @@
 # RebelHacks
-# 🃏 BlackJack Brawl — Vegas Dungeon
+# 🃏 BlackJack Brawl
 
-A browser-based card game built for RebelHacks where blackjack meets dungeon crawling. Fight monsters using the power of cards, unlock jokers, and survive the dungeon.
+A browser-based card game built for RebelHacks where blackjack meets fantasy. Fight monsters using the power of cards, unlock jokers.
 
 ## 🎮 Game Modes
 
-**Fun Mode** — Fantasy RPG blackjack. Battle monsters, collect Joker power-ups, and use special abilities to defeat enemies floor by floor. Features an endless mode once all bosses are defeated.
+**Fun Mode** — Fantasy blackjack. Battle monsters, collect Joker power-ups, and use special abilities to defeat enemies floor by floor. Features an endless mode once all bosses are defeated.
 
 **Realistic Mode** — A standard blackjack casino simulator. No power-ups, just true casino rules and odds — great for learning the game.
 
@@ -19,7 +19,7 @@ A browser-based card game built for RebelHacks where blackjack meets dungeon cra
 
 ## 🛠️ Tech Stack
 
-- HTML, CSS, JavaScript (Vanilla)
+- HTML, CSS, JavaScript
 - Web Audio API for sound effects
 - No frameworks or libraries — fully hand-built
 
@@ -30,7 +30,7 @@ A browser-based card game built for RebelHacks where blackjack meets dungeon cra
    git clone https://github.com/khoo02/RebelHacks.git
    cd RebelHacks
    ```
-2. Open `templates/index.html` in your browser — no server needed!
+2. Open `templates/index.html` in your browser, no server needed.
 
 ## 📁 Project Structure
 

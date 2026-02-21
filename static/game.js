@@ -1319,9 +1319,14 @@ function updateAbilityUI() {
     const unlocked = !!state.unlocked.jokers[i];
     const consumed = !!state.jokerUsed[i];
     el.classList.toggle('used', !unlocked || consumed);
-    el.title = unlocked
-      ? ABILITY_LABELS[i]
-      : `Locked (${ABILITY_COSTS.jokers[i]} coins)`;
+    // Remove native title tooltip so the custom `.joker-tooltip` element is visible on hover.
+    el.removeAttribute('title');
+    // Provide an accessible label (does not trigger native tooltip).
+    if (unlocked) {
+      el.setAttribute('aria-label', ABILITY_LABELS[i]);
+    } else {
+      el.setAttribute('aria-label', `Locked (${ABILITY_COSTS.jokers[i]} coins)`);
+    }
   }
 }
 

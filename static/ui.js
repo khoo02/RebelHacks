@@ -101,3 +101,38 @@ function endGame(playerWon) {
 
   overlay.style.display = 'flex';
 }
+
+// Floating joker tooltip: show ability description on hover (avoids clipping).
+function initJokerHoverTooltips() {
+  const floatEl = document.createElement('div');
+  floatEl.className = 'floating-joker-tooltip';
+  document.body.appendChild(floatEl);
+
+  function show(text, rect) {
+    floatEl.textContent = text;
+    // position center above element
+    const tooltipRect = floatEl.getBoundingClientRect();
+    const left = rect.left + rect.width / 2;
+    const top = rect.top - 8; // slight gap
+    floatEl.style.left = left + 'px';
+    floatEl.style.top = (top) + 'px';
+    floatEl.classList.add('show');
+  }
+  function hide() {
+    floatEl.classList.remove('show');
+  }
+
+  const cards = document.querySelectorAll('.joker-card');
+  cards.forEach(card => {
+    const innerTooltip = card.querySelector('.joker-tooltip');
+    if (!innerTooltip) return;
+    card.addEventListener('pointerenter', (e) => {
+      const rect = card.getBoundingClientRect();
+      show(innerTooltip.textContent, rect);
+    });
+    card.addEventListener('pointerleave', hide);
+    card.addEventListener('pointerdown', hide);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initJokerHoverTooltips);

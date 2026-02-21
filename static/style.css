@@ -455,6 +455,25 @@ font-family: 'Crimson Text', serif;
 }
 .joker-card:hover .joker-tooltip { display: block; }
 
+/* Floating tooltip used by JS to avoid clipping from overflow parents */
+.floating-joker-tooltip {
+  position: fixed;
+  background: rgba(10,6,8,0.95);
+  border: 1px solid var(--gold);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  border-radius: 4px;
+  color: #e8d5a3;
+  z-index: 2000;
+  font-family: 'Crimson Text', serif;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.08s ease;
+  opacity: 0;
+}
+.floating-joker-tooltip.show { opacity: 1; }
+
 /* GAME OVER */
 #game-over-overlay {
 display: none;

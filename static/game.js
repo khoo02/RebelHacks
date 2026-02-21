@@ -78,7 +78,7 @@ function installAudioUnlock() {
   window.addEventListener('mousedown', unlock);
 }
 
-function playTone(freq, duration = 0.09, type = 'sine', volume = 0.4, sweepTo = null) {
+function playTone(freq, duration = 0.09, type = 'sine', volume = 14.5, sweepTo = null) {
   if (audio.muted) return;
   initAudio();
   if (!audio.ctx || !audio.master) return;

@@ -982,7 +982,7 @@ async function resolveRound(pScore, mScore) {
     setTimeout(() => document.getElementById('monster-zone').classList.remove('shake'), 400);
     await sleep(600);
     if (state.monsterHP <= 0) { await handleMonsterDefeated(); return; }
-  }
+  
 
   if (playerDmg > 0) {
     if (!useFlatTieDamage && state.blocking) {

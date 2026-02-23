@@ -38,15 +38,17 @@ Locally
 
 ```
 RebelHacks/
+├── static/
+│   ├── fun-features.js         # Passives, shop, and special features
+│   ├── fun-game.js             # Core game logic
+│   ├── fun-style.css           # Styling
+│   ├── realistic-game.js       # Core game logic
+│   ├── realistic-style.css     # Styling
 ├── templates/
-│   ├── index.html       # Main menu / mode select
-│   ├── fun.html         # Fun mode game screen
-│   └── realistic.html   # Realistic mode game screen
-└── static/
-    ├── game.js          # Core game logic
-    ├── ui.js            # UI helpers and DOM updates
-    ├── features.js      # Passives, shop, and special features
-    └── style.css        # Styling
+│   ├── fun.html                # Fun mode game screen
+│   └── realistic.html          # Realistic mode game screen
+└── index.html                  # Main menu / mode select
+
 ```
 
 ## 👾 Built at RebelHacks

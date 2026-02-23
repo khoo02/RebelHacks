@@ -349,12 +349,14 @@ function quitToTitle() {
   state.busy = true;
   state.phase = 'title';
   setButtons(false);
-  window.location.href = 'index.html';
+  const indexHref = window.location.pathname.includes('/templates/') ? '../index.html' : 'index.html';
+  window.location.href = indexHref;
 }
 
 function returnToMainMenu() {
   clearSavedRun();
-  window.location.href = 'index.html';
+  const indexHref = window.location.pathname.includes('/templates/') ? '../index.html' : 'index.html';
+  window.location.href = indexHref;
 }
 
 function startNewRun() {

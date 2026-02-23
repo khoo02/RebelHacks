@@ -24,7 +24,9 @@ A browser-based card game built for RebelHacks where blackjack meets fantasy. Fi
 - No frameworks or libraries — fully hand-built
 
 ## 🚀 How to Run
+Github Pages: https://khoo02.github.io/RebelHacks/
 
+Locally
 1. Clone the repo:
    ```bash
    git clone https://github.com/khoo02/RebelHacks.git
